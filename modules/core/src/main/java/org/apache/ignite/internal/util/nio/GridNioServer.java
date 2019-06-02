@@ -3798,6 +3798,7 @@ public class GridNioServer<T> {
 
         /** Tracing processor */
         private Tracing tracing;
+
         /**
          * Finishes building the instance.
          *

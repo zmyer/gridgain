@@ -35,7 +35,6 @@ final class BinaryMetadataHolder implements Serializable {
     /** */
     private final int acceptedVer;
 
-
     /**
      * @param metadata Metadata.
      * @param pendingVer Pending updates count.

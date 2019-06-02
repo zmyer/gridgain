@@ -27,6 +27,7 @@ import org.jetbrains.annotations.Nullable;
 public class NoopTracing implements Tracing {
     /** */
     private static final TracingSpi NOOP_SPI = new NoopTracingSpi();
+
     /** */
     private static final TraceableMessagesHandler MSG_HND = new TraceableMessagesHandler(NOOP_SPI, new NullLogger());
 

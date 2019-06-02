@@ -166,7 +166,6 @@ public abstract class AgentCommonAbstractTest extends GridCommonAbstractTest {
         else
             cfg.setConsoleUris(F.asList((isSslEnabled ? "https" : "http") + "://host.testcontainers.internal:" + port));
 
-
         ignite.context().managementConsole().configuration(cfg);
 
         if (isAssertNeeded) {

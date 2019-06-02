@@ -2222,8 +2222,6 @@ public class PlatformConfigurationUtils {
         cfg.setLocalEventListeners(lsnrs);
     }
 
-
-
     /**
      * Private constructor.
      */

@@ -60,7 +60,6 @@ public class MixedTracingSpiTest extends GridCommonAbstractTest {
         listeners.add(LogListener.matches(
             s -> s.contains("Failed to create span from serialized value")).times(2).build());
 
-
         listeners.forEach(testLog::registerListener);
 
         return listeners;
@@ -127,6 +126,4 @@ public class MixedTracingSpiTest extends GridCommonAbstractTest {
 
         listeners.forEach(lsnr -> assertFalse(lsnr.check()));
     }
-
-
 }

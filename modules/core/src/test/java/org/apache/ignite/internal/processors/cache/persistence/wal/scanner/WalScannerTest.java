@@ -65,6 +65,7 @@ import static org.mockito.Mockito.when;
 public class WalScannerTest {
     /** **/
     private static final String TEST_DUMP_FILE = "output.txt";
+
     /** **/
     private static FileWALPointer ZERO_POINTER = new FileWALPointer(0, 0, 0);
 

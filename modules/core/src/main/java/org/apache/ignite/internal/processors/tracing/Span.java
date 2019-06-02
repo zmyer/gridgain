@@ -33,6 +33,7 @@ public interface Span {
      * @param tagVal Tag value.
      */
     public Span addTag(String tagName, String tagVal);
+
     /**
      * Adds tag to span with {@code long} value.
      *
@@ -40,12 +41,14 @@ public interface Span {
      * @param tagVal Tag value.
      */
     public Span addTag(String tagName, long tagVal);
+
     /**
      * Logs work to span.
      *
      * @param logDesc Log description.
      */
     public Span addLog(String logDesc);
+
     /**
      * Adds log to span with additional attributes.
      *
@@ -53,16 +56,19 @@ public interface Span {
      * @param attributes Attributes.
      */
     public Span addLog(String logDesc, Map<String, String> attributes);
+
     /**
      * Explicitly set status for span.
      *
      * @param spanStatus Status.
      */
     public Span setStatus(SpanStatus spanStatus);
+
     /**
      * Ends span. This action sets default status if not set and mark the span as ready to be exported.
      */
     public Span end();
+
     /**
      * @return {@code true} if span has already ended.
      */

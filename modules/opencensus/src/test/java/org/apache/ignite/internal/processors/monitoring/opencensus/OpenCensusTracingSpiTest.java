@@ -64,6 +64,7 @@ import static org.apache.ignite.internal.processors.tracing.Traces.Communication
 public class OpenCensusTracingSpiTest extends GridCommonAbstractTest {
     /** Grid count. */
     private static final int GRID_CNT = 3;
+
     /** Span buffer count - hardcode in open census. */
     private static final int SPAN_BUFFER_COUNT = 32;
 
@@ -404,6 +405,7 @@ public class OpenCensusTracingSpiTest extends GridCommonAbstractTest {
     static class TraceExporterTestHandler extends SpanExporter.Handler {
         /** Collected spans. */
         private final Map<SpanId, SpanData> collectedSpans = new ConcurrentHashMap<>();
+
         /** */
         private final Map<SpanId, List<SpanData>> collectedSpansByParents = new ConcurrentHashMap<>();
 

@@ -197,6 +197,7 @@ public class QueryUtils {
 
         return rows;
     }
+
     /**
      * Convert object that can be passed to client.
      *

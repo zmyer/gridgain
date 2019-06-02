@@ -316,6 +316,7 @@ class BinaryMetadataFileStore {
          * Queue of write tasks submitted for execution.
          */
         private final BlockingQueue<WriteOperationTask> queue = new LinkedBlockingQueue<>();
+
         /**
          * Write operation tasks prepared for writing (but not yet submitted to execution (actual writing).
          */
@@ -520,8 +521,10 @@ class BinaryMetadataFileStore {
     private static final class WriteOperationTask {
         /** */
         private final BinaryMetadata meta;
+
         /** */
         private final int typeVer;
+
         /** */
         private final GridFutureAdapter future = new GridFutureAdapter();
 

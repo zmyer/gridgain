@@ -667,7 +667,6 @@ public class GridSqlQueryParser {
         return res;
     }
 
-
     /**
      * @param tbl Table.
      */
@@ -2156,7 +2155,6 @@ public class GridSqlQueryParser {
             BinaryOperation operation = (BinaryOperation)expression;
 
             BinaryOperation.OpType type = OPERATION_TYPE.get(operation);
-
 
             return new GridSqlOperation(mapOperationType(type),
                 parseExpression(OPERATION_LEFT.get(operation), calcTypes),

@@ -202,12 +202,10 @@ public class MetricSchemaTest {
 
         schema.toBytes(arr, SCHEMA_OFF);
 
-
         MetricSchema schema1 = MetricSchema.fromBytes(arr, SCHEMA_OFF, schema.length());
 
         assertEquals(schema.length(), schema1.length());
 
         assertEquals(schema.items(), schema1.items());
-
     }
 }

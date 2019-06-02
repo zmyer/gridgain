@@ -107,6 +107,7 @@ public class MTC {
 
         /** Precreated instance of current class for performance target. */
         static final TraceSurroundings NOOP_CLOSED_SURROUNDINGS = new TraceSurroundings(NOOP_SPAN, true);
+
         /** Precreated instance of current class for performance target. */
         static final TraceSurroundings NOOP_UNCLOSED_SURROUNDINGS = new TraceSurroundings(NOOP_SPAN, false);
 

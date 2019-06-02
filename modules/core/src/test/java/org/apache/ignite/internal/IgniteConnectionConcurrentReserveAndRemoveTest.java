@@ -66,7 +66,6 @@ public class IgniteConnectionConcurrentReserveAndRemoveTest extends GridCommonAb
         }
     }
 
-
     @Test
     public void test() throws Exception {
         IgniteEx svr = startGrid(0);

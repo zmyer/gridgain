@@ -26,14 +26,19 @@ public class Traces {
     public static class Discovery {
         /** Node join request. */
         public static final String NODE_JOIN_REQUEST = "discovery.node.join.request";
+
         /** Node join add. */
         public static final String NODE_JOIN_ADD = "discovery.node.join.add";
+
         /** Node join finish. */
         public static final String NODE_JOIN_FINISH = "discovery.node.join.finish";
+
         /** Node failed. */
         public static final String NODE_FAILED = "discovery.node.failed";
+
         /** Node left. */
         public static final String NODE_LEFT = "discovery.node.left";
+
         /** Custom event. */
         public static final String CUSTOM_EVENT = "discovery.custom.event";
 
@@ -70,14 +75,19 @@ public class Traces {
 
         /** Job execution request. */
         public static final String JOB_EXECUTE_REQUEST = "communication.job.execute.request";
+
         /** Job execution response. */
         public static final String JOB_EXECUTE_RESPONSE = "communication.job.execute.response";
+
         /** Socket write action. */
         public static final String SOCKET_WRITE = "socket.write";
+
         /** Socket read action. */
         public static final String SOCKET_READ = "socket.read";
+
         /** Process regular. */
         public static final String REGULAR_PROCESS = "process.regular";
+
         /** Process ordered. */
         public static final String ORDERED_PROCESS = "process.ordered";
     }
