@@ -5064,6 +5064,36 @@ public class TcpCommunicationSpi extends IgniteSpiAdapter implements Communicati
         }
 
         /** {@inheritDoc} */
+        @Override public boolean getDiagnosticMessageStatsEnabled() {
+            return TcpCommunicationSpi.this.;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void setDiagnosticMessageStatsEnabled(boolean enabled) {
+
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getDiagnosticMessageStatTooLongProcessing() {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void setDiagnosticMessageStatTooLongProcessing(long value) {
+
+        }
+
+        /** {@inheritDoc} */
+        @Override public long getDiagnosticMessageStatTooLongWaiting() {
+            return 0;
+        }
+
+        /** {@inheritDoc} */
+        @Override public void setDiagnosticMessageStatTooLongWaiting(long value) {
+
+        }
+
+        /** {@inheritDoc} */
         @Override public int getSentMessagesCount() {
             return TcpCommunicationSpi.this.getSentMessagesCount();
         }

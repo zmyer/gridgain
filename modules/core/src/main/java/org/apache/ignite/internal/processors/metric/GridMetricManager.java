@@ -40,12 +40,15 @@ import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.managers.GridManagerAdapter;
+import org.apache.ignite.internal.managers.communication.GridIoManager;
 import org.apache.ignite.internal.processors.metric.impl.DoubleMetricImpl;
 import org.apache.ignite.internal.processors.metric.impl.LongMetricImpl;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
 import org.apache.ignite.internal.util.StripedExecutor;
+import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.util.typedef.internal.U;
+import org.apache.ignite.spi.metric.Metric;
 import org.apache.ignite.spi.metric.MetricExporterSpi;
 import org.apache.ignite.spi.metric.ReadOnlyMetricRegistry;
 import org.apache.ignite.thread.IgniteStripedThreadPoolExecutor;
@@ -54,7 +57,9 @@ import org.jetbrains.annotations.Nullable;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_PHY_RAM;
+import static org.apache.ignite.internal.managers.communication.GridIoManager.MSG_HISTOGRAM_THRESHOLDS;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
+import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.splitRegistryAndMetricName;
 
 /**
  * This manager should provide {@link ReadOnlyMetricRegistry} for each configured {@link MetricExporterSpi}.
@@ -115,6 +120,9 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** System metrics prefix. */
     public static final String SYS_METRICS = "sys";
 
+    /** System metrics prefix. */
+    public static final String DIAGNOSTIC_METRICS = "diagnostic";
+
     /** GC CPU load metric name. */
     public static final String GC_CPU_LOAD = "GcCpuLoad";
 
@@ -135,6 +143,12 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
 
     /** Daemon thread count metric name. */
     public static final String DAEMON_THREAD_CNT = "DaemonThreadCount";
+
+    /** Metrics of diagnotics section. */
+    public static final String DIAGNOSTICS = "diagnostics";
+
+    /** Metrics of diagnotics messages section. */
+    public static final String DIAGNOSTICS_MESSAGES = "messages";
 
     /** JVM interface to memory consumption info */
     private static final MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
@@ -172,6 +186,27 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** Nonheap memory metrics. */
     private final MemoryUsageMetrics nonHeap;
 
+    /** Distributed metrics configuration. */
+    private DistributedMetricsConfiguration distributedMetricsConfiguration;
+
+    /** Group for a grid managers. */
+    public static final String GRID_MANAGERS = "gridManagers";
+
+    /** */
+    public static final String MSG_STAT_PROCESSING_TIME = "MessageProcessingTime";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_WAITING_TIME = "MessageQueueWaitingTime";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_SIZE_BEFORE = "MessageQueueSizeBefore";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_SIZE_AFTER = "MessageQueueSizeAfter";
+
+    /** Monitoring registry. */
+    private MetricRegistry mreg;
+
     /**
      * @param ctx Kernal context.
      */
@@ -199,6 +234,8 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
         sysreg.register(DAEMON_THREAD_CNT, threads::getDaemonThreadCount, null);
         sysreg.register("CurrentThreadCpuTime", threads::getCurrentThreadCpuTime, null);
         sysreg.register("CurrentThreadUserTime", threads::getCurrentThreadUserTime, null);
+
+        distributedMetricsConfiguration = new DistributedMetricsConfiguration(ctx.internalSubscriptionProcessor());
     }
 
     /** {@inheritDoc} */
@@ -337,6 +374,11 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
             for (Map.Entry<String, ? extends ExecutorService> entry : customExecSvcs.entrySet())
                 monitorExecutor(entry.getKey(), entry.getValue());
         }
+    }
+
+    /** */
+    public void registerManagers(GridIoManager gridIoManager) {
+        registerMetricsForMessagesByType();
     }
 
     /**
@@ -609,4 +651,52 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
             max.value(usage.getMax());
         }
     }
+
+    /** */
+    private void registerMetricsForMessagesByType() {
+        MetricRegistry regProcessingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "processingTime"));
+        MetricRegistry regTotalProcessingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "totalProcessingTime"));
+        MetricRegistry regQueueWaitingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
+        MetricRegistry regTotalQueueWaitingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "totalQueueWaitingTime"));
+
+        for (Class msgType : GridIoManager.MSG_MEASURED_TYPES) {
+            regProcessingTime.histogram(
+                msgType.getSimpleName(),
+                MSG_HISTOGRAM_THRESHOLDS,
+                "Histogram for message processing time on current node, for message class " + msgType.getSimpleName()
+            );
+            regQueueWaitingTime.histogram(
+                msgType.getSimpleName(),
+                MSG_HISTOGRAM_THRESHOLDS,
+                "Histograms for how much time is spent for messages to wait in queue after receiving " +
+                    "and before processing on current node, for message class " + msgType.getSimpleName()
+            );
+
+            regTotalProcessingTime.metric(
+                msgType.getSimpleName(),
+                "Total time of message processing time on current node, for message class " + msgType.getSimpleName()
+            );
+            regTotalQueueWaitingTime.metric(
+                msgType.getSimpleName(),
+                "Total value of how much time is spent for messages to wait in queue after receiving " +
+                    "and before processing on current node, for message class " + msgType.getSimpleName()
+            );
+        }
+    }
+
+    public Metric metricByFullName(String metricFullName) {
+        IgnitePair<String> names = splitRegistryAndMetricName(metricFullName);
+
+        if (names.get1() == null)
+            return null;
+
+        MetricRegistry registry = registry(names.get1());
+
+        return registry == null ? null : registry.findMetric(names.get1());
+    }
+
+    public DistributedMetricsConfiguration distributedMetricsConfiguration() {
+        return distributedMetricsConfiguration;
+    }
 }
+

@@ -24,6 +24,7 @@ import java.util.UUID;
 import org.apache.ignite.cluster.BaselineNode;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.internal.managers.discovery.GridDiscoveryManager;
+import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
 import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.mxbean.ClusterMetricsMXBean;
 
@@ -395,6 +396,16 @@ public class ClusterLocalNodeMetricsMXBeanImpl implements ClusterMetricsMXBean {
         }
 
         return Collections.emptySet();
+    }
+
+    /** {@inheritDoc} */
+    @Override public HistogramMetric diagnosticMessagesProcessingTime(String msgType) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override public HistogramMetric diagnosticMessagesQueueWaitingTime(String msgType) {
+        return null;
     }
 
     /** {@inheritDoc} */

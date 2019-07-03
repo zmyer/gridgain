@@ -5274,6 +5274,24 @@ public abstract class IgniteUtils {
     }
 
     /**
+     * Writes long array to output stream accounting for <tt>null</tt> values.
+     *
+     * @param out Output stream to write to.
+     * @param arr Array to write, possibly <tt>null</tt>.
+     * @throws IOException If write failed.
+     */
+    public static void writeLongArray(DataOutput out, @Nullable long[] arr) throws IOException {
+        if (arr == null)
+            out.writeInt(-1);
+        else {
+            out.writeInt(arr.length);
+
+            for (long b : arr)
+                out.writeLong(b);
+        }
+    }
+
+    /**
      * Reads boolean array from input stream accounting for <tt>null</tt> values.
      *
      * @param in Stream to read from.
@@ -5311,6 +5329,27 @@ public abstract class IgniteUtils {
 
         for (int i = 0; i < len; i++)
             res[i] = in.readInt();
+
+        return res;
+    }
+
+    /**
+     * Reads long array from input stream accounting for <tt>null</tt> values.
+     *
+     * @param in Stream to read from.
+     * @return Long array, possibly <tt>null</tt>.
+     * @throws IOException If read failed.
+     */
+    @Nullable public static long[] readLongArray(DataInput in) throws IOException {
+        int len = in.readInt();
+
+        if (len == -1)
+            return null; // Value "-1" indicates null.
+
+        long[] res = new long[len];
+
+        for (int i = 0; i < len; i++)
+            res[i] = in.readLong();
 
         return res;
     }

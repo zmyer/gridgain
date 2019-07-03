@@ -18,16 +18,23 @@ package org.apache.ignite.internal.managers.communication;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,6 +57,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
+import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.events.Event;
@@ -67,14 +75,38 @@ import org.apache.ignite.internal.managers.GridManagerAdapter;
 import org.apache.ignite.internal.managers.deployment.GridDeployment;
 import org.apache.ignite.internal.managers.eventstorage.GridEventStorageManager;
 import org.apache.ignite.internal.managers.eventstorage.GridLocalEventListener;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxFinishResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.GridDhtTxPrepareResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicDeferredUpdateResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicNearResponse;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridDhtAtomicSingleUpdateRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateInvokeRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicSingleUpdateRequest;
+import org.apache.ignite.internal.processors.cache.distributed.dht.atomic.GridNearAtomicUpdateResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearGetResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearLockResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearSingleGetResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxFinishResponse;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareResponse;
 import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccMessage;
+import org.apache.ignite.internal.processors.metric.MetricRegistry;
+import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.security.OperationSecurityContext;
 import org.apache.ignite.internal.processors.security.SecurityContext;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutObject;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
+import org.apache.ignite.internal.util.StripedExecutor;
 import org.apache.ignite.internal.util.future.GridFinishedFuture;
 import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.lang.GridTuple3;
@@ -103,6 +135,8 @@ import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.time.Instant.ofEpochMilli;
+import static java.util.Arrays.asList;
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
 import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
@@ -121,6 +155,13 @@ import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SER
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.UTILITY_CACHE_POOL;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.isReservedGridIoPolicy;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.DIAGNOSTICS;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.DIAGNOSTICS_MESSAGES;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_PROCESSING_TIME;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_SIZE_AFTER;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_SIZE_BEFORE;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_WAITING_TIME;
+import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
 import static org.apache.ignite.internal.util.nio.GridNioBackPressureControl.threadProcessingMessage;
 import static org.jsr166.ConcurrentLinkedHashMap.QueuePolicy.PER_SEGMENT_Q_OPTIMIZED_RMV;
 
@@ -128,6 +169,16 @@ import static org.jsr166.ConcurrentLinkedHashMap.QueuePolicy.PER_SEGMENT_Q_OPTIM
  * Grid communication manager.
  */
 public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializable>> {
+    /** */
+    private static final long statTooLongProcessing =
+        IgniteSystemProperties.getLong(
+            IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING, TimeUnit.MILLISECONDS.toNanos(250));
+
+    /** */
+    private static final long statTooLongWaiting =
+        IgniteSystemProperties.getLong(
+            IgniteSystemProperties.IGNITE_STAT_TOO_LONG_WAITING, TimeUnit.MILLISECONDS.toNanos(250));
+
     /** Empty array of message factories. */
     public static final MessageFactory[] EMPTY = {};
 
@@ -142,6 +193,41 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
     /** Current IO policy. */
     private static final ThreadLocal<Byte> CUR_PLC = new ThreadLocal<>();
+
+    /** */
+    private static final String[][] MSG_METRICS_DESCRIPTION = new String[][] {
+        new String[] { MSG_STAT_PROCESSING_TIME, "Message processing time" },
+        new String[] { MSG_STAT_QUEUE_WAITING_TIME, "Message queue waiting time" },
+        new String[] { MSG_STAT_QUEUE_SIZE_BEFORE, "Message queue size before" },
+        new String[] { MSG_STAT_QUEUE_SIZE_AFTER, "Message queue size after" }
+    };
+
+    /** */
+    public static final long[] MSG_HISTOGRAM_THRESHOLDS = new long[] {1, 5, 10, 30, 50, 100, 250, 500, 750, 1000};
+
+    /** */
+    public static final Set<Class> MSG_MEASURED_TYPES = Collections.unmodifiableSet(new HashSet(asList(
+        GridNearSingleGetRequest.class,
+        GridNearSingleGetResponse.class,
+        GridNearLockRequest.class,
+        GridNearLockResponse.class,
+        GridNearAtomicSingleUpdateInvokeRequest.class,
+        GridDhtAtomicSingleUpdateRequest.class,
+        GridDhtAtomicDeferredUpdateResponse.class,
+        GridNearTxPrepareRequest.class,
+        GridNearTxPrepareResponse.class,
+        GridNearTxFinishResponse.class,
+        GridDhtTxPrepareRequest.class,
+        GridDhtTxPrepareResponse.class,
+        GridDhtTxFinishRequest.class,
+        GridDhtTxFinishResponse.class,
+        GridNearTxFinishRequest.class,
+        GridDhtAtomicNearResponse.class,
+        GridNearGetRequest.class,
+        GridNearGetResponse.class,
+        GridNearAtomicSingleUpdateRequest.class,
+        GridNearAtomicUpdateResponse.class
+    )));
 
     /** Listeners by topic. */
     private final ConcurrentMap<Object, GridMessageListener> lsnrMap = new ConcurrentHashMap<>();
@@ -209,6 +295,27 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
     /** No-op runnable. */
     private static final IgniteRunnable NOOP = () -> {};
+
+    /** Initialized from single thread when grid starts, accessed from many. */
+    private final Map<String, ProcessMessageStatsClosure<Message>> handlers = new HashMap<>();
+
+    /** */
+    private volatile MetricRegistry msgProcessingTimeRegistry;
+
+    /** */
+    private volatile MetricRegistry msgQueueWaitingTimeRegistry;
+
+    /** */
+    private final AtomicLong totalProcessingTime = new AtomicLong(0);
+
+    /** */
+    private final AtomicLong totalQueueWaitingTime = new AtomicLong(0);
+
+    /** */
+    private ThreadLocal<List<ProcStat>> locSlowMsgHolder = new ThreadLocal<>();
+
+    /** */
+    private final Map<Thread, List<ProcStat>> sharedSlowMsgs = new ConcurrentHashMap<>();
 
     /**
      * @param ctx Grid kernal context.
@@ -365,6 +472,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                 }
             }
         });
+
+        msgProcessingTimeRegistry = ctx.metric().registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "processingTime"));
+        msgQueueWaitingTimeRegistry = ctx.metric().registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
     }
 
     /**
@@ -1080,12 +1190,50 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         final byte plc,
         final IgniteRunnable msgC
     ) throws IgniteCheckedException {
-        Runnable c = new Runnable() {
+        final long startWait = System.nanoTime();
+
+        final long enqueueTs = U.currentTimeMillis();
+
+        StripedExecutor.StripeAwareRunnable c = new StripedExecutor.StripeAwareRunnable() {
+            private @Nullable StripedExecutor.Stripe stripe;
+            private int beforeQueueSize = -1;
+            private @Nullable Message head;
+
+            @Override public Message message() {
+                return msg.message();
+            }
+
+            @Override public void assign(StripedExecutor.Stripe stripe) {
+                this.stripe = stripe;
+
+                beforeQueueSize = stripe.queueSize();
+
+                head = head();
+            }
+
+            public Message head() {
+                StripedExecutor.StripeAwareRunnable head = (StripedExecutor.StripeAwareRunnable)stripe.head();
+
+                return head == null ? null : head.message();
+            }
+
             @Override public void run() {
                 try {
                     threadProcessingMessage(true, msgC);
 
+                    long startProc = System.nanoTime();
+
                     processRegularMessage0(msg, nodeId);
+
+                    writeMessageMetrics(msg,
+                        startWait,
+                        startProc,
+                        System.nanoTime(),
+                        enqueueTs,
+                        beforeQueueSize,
+                        head,
+                        stripe == null ? -1 : stripe.queueSize()
+                    );
                 }
                 catch (Throwable e) {
                     log.error("An error occurred processing the message [msg=" + msg + ", nodeId=" + nodeId + "].", e);
@@ -1193,6 +1341,116 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         assert obj != null;
 
         invokeListener(msg.policy(), lsnr, nodeId, obj, secSubj(msg));
+    }
+
+    /**
+     * @param msg Message.
+     * @param startWait Start waiting in queue timestamp.
+     * @param startProc Start processing timestamp.
+     * @param finishProc Finish processing timestamp.
+     * @param enqueueTs enqueue UNIX timestamp (10ms resolution)
+     * @param queueSizeBefore queue size before adding message to stripe queue.
+     * @param head queue head before adding message to stripe queue.
+     * @param queueSizeAfter queue size after finishing message processing.
+     */
+    private void writeMessageMetrics(GridIoMessage msg,
+        long startWait,
+        long startProc,
+        long finishProc,
+        long enqueueTs,
+        int queueSizeBefore,
+        Message head,
+        int queueSizeAfter) {
+        Message msg0 = msg.message();
+
+        if (!MSG_MEASURED_TYPES.contains(msg0.getClass()))
+            return;
+
+        if (ctx.clientNode() || msgProcessingTimeRegistry == null || msgQueueWaitingTimeRegistry == null)
+            return;
+
+        HistogramMetric processingTimeMetrics =
+            getMsgHistogram(msgProcessingTimeRegistry, "processingTime", msg0.getClass());
+
+        HistogramMetric queueWaitingTimeMetrics =
+            getMsgHistogram(msgQueueWaitingTimeRegistry, "queueWaitingTime", msg0.getClass());
+
+        long procTime = finishProc - startProc;
+        long waitTime = startProc - startWait;
+
+        processingTimeMetrics.value(procTime);
+        queueWaitingTimeMetrics.value(waitTime);
+
+        ProcessMessageStatsClosure<Message> clo = handlers.get(msg0.getClass().getSimpleName());
+
+        if (clo != null) {
+            try {
+                clo.apply(msg0);
+            }
+            catch (Throwable e) {
+                log.error("Failed to apply stat closure: msgCls=" + msg0.getClass().getSimpleName(), e);
+            }
+        }
+
+        if (procTime > statTooLongProcessing || waitTime > statTooLongWaiting) {
+            List<ProcStat> slowMsgs = locSlowMsgHolder.get();
+
+            if (slowMsgs == null) {
+                locSlowMsgHolder.set(slowMsgs = new LinkedList<>());
+
+                sharedSlowMsgs.put(Thread.currentThread(), slowMsgs);
+            }
+
+            synchronized (slowMsgs) {
+                slowMsgs.add(new ProcStat(enqueueTs, waitTime, procTime, msg0, queueSizeBefore, head, queueSizeAfter, ctx));
+            }
+        }
+    }
+
+    /** */
+    public void dumpProcessedMessagesStats() {
+        ZoneId sysZoneId = ZoneId.systemDefault();
+
+        for (Map.Entry<Thread, List<ProcStat>> entry : sharedSlowMsgs.entrySet()) {
+            List<ProcStat> list = entry.getValue();
+
+            List<ProcStat> copyList;
+
+            synchronized (list) {
+                copyList = new ArrayList<>(list);
+
+                list.clear();
+            }
+
+            for (ProcStat stat : copyList)
+                U.warn(log, slowMsgWarning(stat, sysZoneId));
+        }
+    }
+
+    /** */
+    private String slowMsgWarning(ProcStat stat, ZoneId sysZoneId) {
+        GridStringBuilder sb = new GridStringBuilder();
+
+        sb.a(">>><DBG> Slow message: ").
+            a("enqueueTs=").
+            a(LocalDateTime.ofInstant(ofEpochMilli(stat.enqueueTimestamp()), sysZoneId).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).
+            a(", waitTime=").
+            a(stat.waitTime() / 1000 / 1000.).
+            a(", procTime=").
+            a(stat.processTime() / 1000 / 1000.).
+            a(", messageId=").
+            a(U.hexInt(stat.message().hashCode())).
+            a(", queueSzBefore=").
+            a(stat.sizeBefore()).
+            a(", headMessageId=").
+            a(stat.headHash()).
+            a(", queueSzAfter=").
+            a(stat.sizeAfter()).
+            a(", message=").
+            a(stat.message().toString().replace("\n", " ")).
+            a(U.nl());
+
+        return sb.toString();
     }
 
     /**
@@ -3228,5 +3486,116 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         }
 
         return null;
+    }
+
+    /**
+     * @param msgCls Message class.
+     * @param clo Closure.
+     */
+    public <T extends Message> void addStatHandler(Class<T> msgCls, ProcessMessageStatsClosure<T> clo) {
+        handlers.put(msgCls.getSimpleName(), (ProcessMessageStatsClosure<Message>) clo);
+    }
+
+    /** */
+    private HistogramMetric getMsgHistogram(
+        MetricRegistry registry,
+        String metricGroup,
+        Class<? extends Message> cls
+    ) {
+        return (HistogramMetric)
+            registry.findMetric(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, metricGroup, cls.getSimpleName()));
+    }
+
+    /** */
+    public interface ProcessMessageStatsClosure<T extends Message> {
+        /** */
+        void apply(T msg);
+    }
+
+    /** */
+    public static class ProcStat {
+        long enqueueTs;
+        long waitTime;
+        long procTime;
+        Message msg;
+        int sizeBefore;
+        Message head;
+        int sizeAfter;
+        Object ctx;
+
+        public ProcStat(long enqueueTs, long waitTime, long procTime, Message msg, int sizeBefore,
+            Message head, int sizeAfter, Object ctx) {
+            this.waitTime = waitTime;
+            this.enqueueTs = enqueueTs;
+            this.procTime = procTime;
+            this.msg = msg;
+            this.sizeBefore = sizeBefore;
+            this.head = head;
+            this.sizeAfter = sizeAfter;
+            this.ctx = ctx;
+        }
+
+        /**
+         * @return Enqueue timestamp.
+         */
+        public long enqueueTimestamp() {
+            return enqueueTs;
+        }
+
+        /**
+         * @return Wait time in queue.
+         */
+        public long waitTime() {
+            return waitTime;
+        }
+
+        /**
+         * @return Process time.
+         */
+        public long processTime() {
+            return procTime;
+        }
+
+        /**
+         * @return Message.
+         */
+        public Message message() {
+            return msg;
+        }
+
+        /**
+         * @return Size before.
+         */
+        public int sizeBefore() {
+            return sizeBefore;
+        }
+
+        /**
+         * @return Head.
+         */
+        public Message head() {
+            return head;
+        }
+
+        /**
+         * @return Head hash.
+         */
+        public String headHash() {
+            return head == null ? "null" : U.hexInt(head.hashCode());
+        }
+
+        /**
+         * @return Size after.
+         */
+        public int sizeAfter() {
+            return sizeAfter;
+        }
+
+        /**
+         * @return Context.
+         */
+        public Object context() {
+            return ctx;
+        }
     }
 }

@@ -68,7 +68,10 @@ public enum IgniteFeatures {
     IGNITE_SECURITY_PROCESSOR(13),
 
     /** Replacing TcpDiscoveryNode field with nodeId field in discovery messages. */
-    TCP_DISCOVERY_MESSAGE_NODE_COMPACT_REPRESENTATION(14);
+    TCP_DISCOVERY_MESSAGE_NODE_COMPACT_REPRESENTATION(14),
+
+    /** Aggregation of message profiling data. */
+    MESSAGE_PROFILING_AGGREGATION(17);
 
     /**
      * Unique feature identifier.

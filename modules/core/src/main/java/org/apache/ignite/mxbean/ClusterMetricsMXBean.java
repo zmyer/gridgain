@@ -19,6 +19,7 @@ package org.apache.ignite.mxbean;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.cluster.ClusterMetrics;
+import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
 
 /**
  * Cluster metrics MBean.

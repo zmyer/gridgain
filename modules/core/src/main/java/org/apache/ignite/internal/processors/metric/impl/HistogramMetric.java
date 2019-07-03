@@ -48,7 +48,7 @@ public class HistogramMetric extends AbstractMetric implements ObjectMetric<long
      * @param x Value.
      */
     public void value(long x) {
-        assert x >= 0;
+        assert x >= 0 : "x has an illegal value: " + x;
 
         HistogramHolder h = holder;
 
@@ -86,6 +86,17 @@ public class HistogramMetric extends AbstractMetric implements ObjectMetric<long
 
         for (int i = 0; i < h.measurements.length(); i++)
             res[i] = h.measurements.get(i);
+
+        return res;
+    }
+
+    /**
+     * Returns bounds of this histogram.
+     */
+    public long[] bounds() {
+        long[] res = new long[holder.bounds.length];
+
+        System.arraycopy(holder.bounds, 0, res, 0, res.length);
 
         return res;
     }

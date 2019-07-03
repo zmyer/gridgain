@@ -16,8 +16,10 @@
 
 package org.apache.ignite.internal.processors.metric.impl;
 
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.processors.metric.GridMetricManager;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
+import org.apache.ignite.internal.util.lang.IgnitePair;
 
 import static org.apache.ignite.internal.processors.cache.CacheMetricsImpl.CACHE_METRICS;
 
@@ -49,6 +51,18 @@ public class MetricUtils {
         String beanName = regName.substring(firstDot + 1);
 
         return new MetricName(grp, beanName);
+    }
+
+    public static IgnitePair<String> splitRegistryAndMetricName(String metricFullName) {
+        int idx = metricFullName.lastIndexOf(SEPARATOR);
+
+        if (idx <= 0 && idx > metricFullName.length() - 1)
+            return new IgnitePair<>(null, metricFullName);
+
+        String first = metricFullName.substring(0, idx - 1);
+        String second = metricFullName.substring(idx + 1);
+
+        return new IgnitePair<>(first, second);
     }
 
     /**

@@ -16,6 +16,11 @@
 
 package org.apache.ignite.internal.commandline.argument;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import org.apache.ignite.internal.commandline.ArgumentInfo;
+import org.apache.ignite.internal.commandline.CommandArgIterator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -36,6 +41,54 @@ public class CommandArgUtils {
         }
 
         return null;
+    }
+
+    public static <E extends Enum<E> & CommandArg> Map<E, Object> parseArgs(
+        CommandArgIterator argIter,
+        Class<E> argsClass,
+        Map<E, Class> argumentTypesMap
+    ) {
+        Map<E, Object> res = new HashMap<>();
+
+        while (true) {
+            String str = argIter.peekNextArg();
+
+            if (str == null)
+                break;
+
+            E arg = of(str, argsClass);
+
+            Class argClass = argumentTypesMap.get(arg);
+
+            if (argClass == null)
+                argClass = String.class;
+
+            argIter.nextArg("");
+
+            switch (argClass.getName()) {
+                case "String":
+                    res.put(arg, argIter.nextArg(arg.argName()));
+
+                    break;
+
+                case "UUID":
+                    res.put(arg, UUID.fromString(argIter.nextArg(arg.argName())));
+
+                    break;
+
+                case "Long":
+                    res.put(arg, argIter.nextLongArg(arg.argName()));
+
+                    break;
+
+                case "Set":
+                    res.put(arg, argIter.nextStringSet(arg.argName()));
+
+                    break;
+            }
+        }
+
+        return res;
     }
 
     /** Private constructor. */
