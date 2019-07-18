@@ -431,8 +431,8 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
         try {
             cctx.tm().prepareTx(this, entries);
 
-            if (txState().mvccEnabled())
-                calculatePartitionUpdateCounters();
+//            if (txState().mvccEnabled())
+            calculatePartitionUpdateCounters();
         }
         catch (IgniteCheckedException e) {
             throw e;
@@ -452,7 +452,7 @@ public abstract class IgniteTxLocalAdapter extends IgniteTxAdapter implements Ig
      * pair (init, delta) values, where init - initial update counter, and delta - updates count made
      * by current transaction for a given partition.
      */
-    public void calculatePartitionUpdateCounters() {
+    private void calculatePartitionUpdateCounters() {
         TxCounters counters = txCounters(false);
 
         if (counters != null && F.isEmpty(counters.updateCounters())) {
