@@ -168,6 +168,7 @@ public class BinaryUtils {
         PLAIN_CLASS_TO_FLAG.put(String.class, GridBinaryMarshaller.STRING);
         PLAIN_CLASS_TO_FLAG.put(UUID.class, GridBinaryMarshaller.UUID);
         PLAIN_CLASS_TO_FLAG.put(Date.class, GridBinaryMarshaller.DATE);
+        PLAIN_CLASS_TO_FLAG.put(java.sql.Date.class, GridBinaryMarshaller.DATE);
         PLAIN_CLASS_TO_FLAG.put(Timestamp.class, GridBinaryMarshaller.TIMESTAMP);
         PLAIN_CLASS_TO_FLAG.put(Time.class, GridBinaryMarshaller.TIME);
 
@@ -183,6 +184,7 @@ public class BinaryUtils {
         PLAIN_CLASS_TO_FLAG.put(String[].class, GridBinaryMarshaller.STRING_ARR);
         PLAIN_CLASS_TO_FLAG.put(UUID[].class, GridBinaryMarshaller.UUID_ARR);
         PLAIN_CLASS_TO_FLAG.put(Date[].class, GridBinaryMarshaller.DATE_ARR);
+        PLAIN_CLASS_TO_FLAG.put(java.sql.Date[].class, GridBinaryMarshaller.DATE_ARR);
         PLAIN_CLASS_TO_FLAG.put(Timestamp[].class, GridBinaryMarshaller.TIMESTAMP_ARR);
         PLAIN_CLASS_TO_FLAG.put(Time[].class, GridBinaryMarshaller.TIME_ARR);
 
@@ -219,6 +221,7 @@ public class BinaryUtils {
         BINARY_CLS.add(String.class);
         BINARY_CLS.add(UUID.class);
         BINARY_CLS.add(Date.class);
+        BINARY_CLS.add(java.sql.Date.class);
         BINARY_CLS.add(Timestamp.class);
         BINARY_CLS.add(Time.class);
         BINARY_CLS.add(BigDecimal.class);
@@ -233,6 +236,7 @@ public class BinaryUtils {
         BINARY_CLS.add(String[].class);
         BINARY_CLS.add(UUID[].class);
         BINARY_CLS.add(Date[].class);
+        BINARY_CLS.add(java.sql.Date[].class);
         BINARY_CLS.add(Timestamp[].class);
         BINARY_CLS.add(Time[].class);
         BINARY_CLS.add(BigDecimal[].class);
@@ -737,7 +741,7 @@ public class BinaryUtils {
         return cls == byte[].class || cls == short[].class || cls == int[].class || cls == long[].class ||
             cls == float[].class || cls == double[].class || cls == char[].class || cls == boolean[].class ||
             cls == String[].class || cls == UUID[].class || cls == Date[].class || cls == Timestamp[].class ||
-            cls == BigDecimal[].class || cls == Time[].class;
+            cls == BigDecimal[].class || cls == java.sql.Date[].class || cls == Time[].class;
     }
 
     /**
@@ -1120,6 +1124,8 @@ public class BinaryUtils {
             return BinaryWriteMode.UUID;
         else if (cls == Date.class)
             return BinaryWriteMode.DATE;
+        else if (cls == java.sql.Date.class)
+            return BinaryWriteMode.DATE;
         else if (cls == Timestamp.class)
             return BinaryWriteMode.TIMESTAMP;
         else if (cls == Time.class)
@@ -1332,7 +1338,7 @@ public class BinaryUtils {
     public static Date doReadDate(BinaryInputStream in) {
         long time = in.readLong();
 
-        return new Date(time);
+        return new java.sql.Date(time);
     }
 
     /**

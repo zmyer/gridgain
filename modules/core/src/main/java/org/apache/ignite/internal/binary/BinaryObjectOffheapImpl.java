@@ -25,7 +25,7 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.sql.Time;
 import java.sql.Timestamp;
-import java.util.Date;
+import java.sql.Date;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.binary.BinaryObject;

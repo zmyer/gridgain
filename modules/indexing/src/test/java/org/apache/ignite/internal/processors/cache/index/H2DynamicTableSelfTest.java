@@ -17,6 +17,7 @@
 package org.apache.ignite.internal.processors.cache.index;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -783,6 +784,29 @@ public class H2DynamicTableSelfTest extends AbstractSchemaSelfTest {
         assertCreateTableWithParamsThrows("write_synchronization_mode=invalid",
             "Invalid value of \"WRITE_SYNCHRONIZATION_MODE\" parameter " +
                 "(should be FULL_SYNC, FULL_ASYNC, or PRIMARY_SYNC): invalid");
+    }
+
+    /**
+     * Test that attempting to {@code CREATE TABLE} that already exists does not yield an error if the statement
+     *      contains {@code IF NOT EXISTS} clause.
+     * @throws Exception if fails.
+     */
+    @Test
+    public void testCreateTableWithDateKey() throws Exception {
+        execute("CREATE TABLE t48 ( id DATE NOT NULL, col1 INT NOT NULL, col2 VARCHAR, PRIMARY KEY (id)) WITH \"" +
+            "TEMPLATE=partitioned, WRITE_SYNCHRONIZATION_MODE=FULL_SYNC, CACHE_NAME='custom_name_330'\"");
+
+        awaitPartitionMapExchange();
+
+        execute("INSERT INTO t48 (id,col1,col2) VALUES ('2001-09-14',0,'string_5'),('2001-09-15',-1,'string_6')," +
+                "('2001-09-16',1,'string_7'),('2001-09-17',-2147483648,'string_8'),('2001-09-18',2147483647,NULL)," +
+                "('2001-09-19',-2147483647,'string_10'),('2001-09-20',2147483646,'string_11')," +
+                "('2001-09-21',12,'string_12'),('2001-09-22',-13,'string_13'),('2001-09-23',14,NULL)");
+
+        List<List<?>> res = execute(client(), "SELECT * FROM t48 ORDER BY id");
+
+        assertFalse(res.isEmpty());
+        assertTrue(res.stream().allMatch(e -> e.get(0) instanceof Date));
     }
 
     /**
