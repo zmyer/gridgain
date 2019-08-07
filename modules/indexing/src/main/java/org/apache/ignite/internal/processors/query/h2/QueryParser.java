@@ -411,6 +411,8 @@ public class QueryParser {
 
             GridSqlQuery selectStmt = (GridSqlQuery)parser.parse(prepared);
 
+            GridQueryOptimizer.pullOutSubQuery(selectStmt);
+
             List<Integer> cacheIds = parser.cacheIds();
             Integer mvccCacheId = mvccCacheIdForSelect(parser.objectsMap());
 
