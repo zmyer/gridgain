@@ -16,6 +16,9 @@
 
 package org.apache.ignite.util;
 
+import javax.cache.processor.EntryProcessor;
+import javax.cache.processor.EntryProcessorException;
+import javax.cache.processor.MutableEntry;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -43,15 +46,16 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.cache.processor.EntryProcessor;
-import javax.cache.processor.EntryProcessorException;
-import javax.cache.processor.MutableEntry;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteAtomicSequence;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteCluster;
 import org.apache.ignite.IgniteDataStreamer;
+import org.apache.ignite.IgniteException;
+import org.apache.ignite.cache.CacheMode;
+import org.apache.ignite.cache.PartitionLossPolicy;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cluster.BaselineNode;
 import org.apache.ignite.cluster.ClusterNode;
@@ -88,7 +92,6 @@ import org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager;
 import org.apache.ignite.internal.processors.cache.transactions.TransactionProxyImpl;
 import org.apache.ignite.internal.processors.cache.version.GridCacheVersion;
 import org.apache.ignite.internal.processors.datastructures.GridCacheInternalKeyImpl;
-import org.apache.ignite.internal.processors.ru.RollingUpgradeModeChangeResult;
 import org.apache.ignite.internal.util.lang.GridAbsPredicate;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.T2;
@@ -103,26 +106,32 @@ import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.lang.IgniteUuid;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.testframework.GridTestUtils;
+import org.apache.ignite.testframework.junits.SystemPropertiesRule;
+import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.transactions.Transaction;
 import org.apache.ignite.transactions.TransactionRollbackException;
 import org.apache.ignite.transactions.TransactionState;
 import org.apache.ignite.transactions.TransactionTimeoutException;
 import org.jetbrains.annotations.NotNull;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 
 import static java.io.File.separatorChar;
 import static java.util.Arrays.asList;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_ENABLE_EXPERIMENTAL_COMMAND;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_ILLEGAL_SATE_ERROR;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_INVALID_ARGUMENTS;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_OK;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_UNEXPECTED_ERROR;
+import static org.apache.ignite.internal.commandline.CommandHandler.UTILITY_NAME;
+import static org.apache.ignite.internal.commandline.CommandList.WAL;
 import static org.apache.ignite.internal.commandline.OutputFormat.MULTI_LINE;
 import static org.apache.ignite.internal.commandline.OutputFormat.SINGLE_LINE;
 import static org.apache.ignite.internal.commandline.cache.CacheSubcommands.HELP;
 import static org.apache.ignite.internal.processors.diagnostic.DiagnosticProcessor.DEFAULT_TARGET_FOLDER;
-import static org.apache.ignite.internal.processors.ru.RollingUpgradeModeChangeResult.Result.FAIL;
 import static org.apache.ignite.testframework.GridTestUtils.assertContains;
 import static org.apache.ignite.testframework.GridTestUtils.assertNotContains;
 import static org.apache.ignite.testframework.GridTestUtils.waitForCondition;
@@ -134,6 +143,9 @@ import static org.apache.ignite.transactions.TransactionIsolation.READ_COMMITTED
  * Command line handler test.
  */
 public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
+    /** */
+    @Rule public final TestRule methodRule = new SystemPropertiesRule();
+
     /** */
     private File defaultDiagnosticDir;
     /** */
@@ -178,6 +190,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
     @Override public String getTestIgniteInstanceName() {
         return "gridCommandHandlerTest";
     }
+
     /**
      * Test activation works via control.sh
      *
@@ -326,21 +339,21 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "find_garbage", "--port", "11212"));
 
-        assertTrue(testOut.toString().contains("garbage not found"));
+        assertContains(log, testOut.toString(), "garbage not found");
 
         testOut.reset();
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "find_garbage",
             ignite(0).localNode().id().toString(), "--port", "11212"));
 
-        assertTrue(testOut.toString().contains("garbage not found"));
+        assertContains(log, testOut.toString(), "garbage not found");
 
         testOut.reset();
 
         assertEquals(EXIT_CODE_OK, execute("--cache", "find_garbage",
             "groupGarbage", "--port", "11212"));
 
-        assertTrue(testOut.toString().contains("garbage not found"));
+        assertContains(log, testOut.toString(), "garbage not found");
     }
 
     /**
@@ -1231,7 +1244,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
 
         // Ignite instase 1 can be logged only in arguments list.
         boolean isInstanse1Found = Arrays.stream(testOutStr.split("\n"))
-                                        .filter(s -> s.contains("Command arguments:"))
+                                        .filter(s -> s.contains("Arguments:"))
                                         .noneMatch(s -> s.contains(getTestIgniteInstanceName() + "1"));
 
         assertTrue(testOutStr, testOutStr.contains("Node not found for consistent ID:"));
@@ -1337,6 +1350,45 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
         assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify"));
 
         assertContains(log, testOut.toString(), "conflict partitions");
+    }
+
+    /**
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testCacheIdleVerifyPrintLostPartitions() throws Exception {
+        IgniteEx ignite = startGrids(3);
+
+        ignite.cluster().active(true);
+
+        ignite.createCache(new CacheConfiguration<>(DEFAULT_CACHE_NAME)
+            .setAffinity(new RendezvousAffinityFunction(false, 16))
+            .setCacheMode(CacheMode.PARTITIONED)
+            .setPartitionLossPolicy(PartitionLossPolicy.READ_ONLY_SAFE)
+            .setBackups(1));
+
+        try (IgniteDataStreamer streamer = ignite.dataStreamer(DEFAULT_CACHE_NAME)) {
+            for (int i = 0; i < 10000; i++)
+                streamer.addData(i, new byte[i]);
+        }
+
+        String g1Name = grid(1).name();
+
+        stopGrid(1);
+
+        cleanPersistenceDir(g1Name);
+
+        //Start node 2 with empty PDS. Rebalance will be started.
+        startGrid(1);
+
+        //During rebalance stop node 3. Rebalance will be stopped which lead to lost partitions.
+        stopGrid(2);
+
+        injectTestSystemOut();
+
+        assertEquals(EXIT_CODE_OK, execute("--cache", "idle_verify", "--yes"));
+
+        assertContains(log, testOut.toString(), "LOST partitions:");
     }
 
     /**
@@ -1489,7 +1541,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
 
             assertContains(log, dumpWithZeros, "idle_verify check has finished, found " + parts + " partitions");
             assertContains(log, dumpWithZeros, "Partition: PartitionKeyV2 [grpId=1544803905, grpName=default, partId=0]");
-            assertContains(log, dumpWithZeros, "updateCntr=0, size=0, partHash=0");
+            assertContains(log, dumpWithZeros, "updateCntr=0, partitionState=OWNING, size=0, partHash=0");
             assertContains(log, dumpWithZeros, "no conflicts have been found");
 
             assertSort(parts, dumpWithZeros);
@@ -1502,7 +1554,7 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
             assertContains(log, dumpWithoutZeros, (parts - keysCount) + " partitions was skipped");
             assertContains(log, dumpWithoutZeros, "Partition: PartitionKeyV2 [grpId=1544803905, grpName=default, partId=");
 
-            assertNotContains(log, dumpWithoutZeros, "updateCntr=0, size=0, partHash=0");
+            assertNotContains(log, dumpWithoutZeros, "updateCntr=0, partitionState=OWNING, size=0, partHash=0");
 
             assertContains(log, dumpWithoutZeros, "no conflicts have been found");
 
@@ -2718,55 +2770,6 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
     }
 
     /**
-     * Tests enabling/disabling rolling upgrade.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testRollingUpgrade() throws Exception {
-        Ignite ignite = startGrid(0);
-
-        CommandHandler hnd = new CommandHandler();
-
-        // Apache Ignite does not support rolling upgrade from out of the box.
-        assertEquals(EXIT_CODE_OK, execute(hnd, "--rolling-upgrade", "on"));
-
-        RollingUpgradeModeChangeResult res = hnd.getLastOperationResult();
-
-        assertTrue("Enabling rolling upgrade should fail [res=" + res + ']', FAIL == res.result());
-        assertTrue(
-            "The cause of the failure should be UnsupportedOperationException [cause=" + res.cause() + ']',
-            X.hasCause(res.cause(), UnsupportedOperationException.class));
-
-        assertEquals(EXIT_CODE_OK, execute(hnd, "--rolling-upgrade", "off"));
-
-        res = hnd.getLastOperationResult();
-
-        assertTrue("Disabling rolling upgrade should fail [res=" + res + ']', FAIL == res.result());
-        assertTrue(
-            "The cause of the failure should be UnsupportedOperationException [cause=" + res.cause() + ']',
-            X.hasCause(res.cause(), UnsupportedOperationException.class));
-    }
-
-    /**
-     * Tests execution of '--rolling-upgrade state' command.
-     *
-     * @throws Exception If failed.
-     */
-    @Test
-    public void testRollingUpgradeStatus() throws Exception {
-        Ignite ignite = startGrid(0);
-
-        injectTestSystemOut();
-
-        assertEquals(EXIT_CODE_OK, execute("--rolling-upgrade", "status"));
-
-        String out = testOut.toString();
-
-        assertContains(log, out, "Rolling upgrade is disabled");
-    }
-
-    /**
      * Test execution of --diagnostic command.
      *
      * @throws Exception if failed.
@@ -3041,5 +3044,57 @@ public class GridCommandHandlerTest extends GridCommandHandlerAbstractTest {
         catch (IgniteCheckedException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Don't show wal commands by --help in case
+     * {@link org.apache.ignite.IgniteSystemProperties#IGNITE_ENABLE_EXPERIMENTAL_COMMAND} = false or empty.
+     */
+    @Test
+    @WithSystemProperty(key = IGNITE_ENABLE_EXPERIMENTAL_COMMAND, value = "false")
+    public void testHideWalInHelpWhenDisableExperimentalCommand() {
+        injectTestSystemOut();
+
+        execute("--help");
+
+        assertNotContains(log, testOut.toString(), WAL.text());
+    }
+
+    /**
+     * Wal commands should ignored and print warning in case
+     * {@link org.apache.ignite.IgniteSystemProperties#IGNITE_ENABLE_EXPERIMENTAL_COMMAND} = false or empty.
+     * */
+    @Test
+    @WithSystemProperty(key = IGNITE_ENABLE_EXPERIMENTAL_COMMAND, value = "false")
+    public void testWalCommandsInCaseDisableExperimentalCommand() {
+        injectTestSystemOut();
+
+        String warning = String.format("For use experimental command add %s=true to JVM_OPTS in %s",
+            IGNITE_ENABLE_EXPERIMENTAL_COMMAND, UTILITY_NAME);
+
+        Stream.of("print", "delete")
+            .peek(c -> testOut.reset())
+            .peek(c -> assertEquals(EXIT_CODE_OK, execute(WAL.text(), c)))
+            .forEach(c -> assertContains(log, testOut.toString(), warning));
+    }
+
+    /**
+     * Verify that in case of setting baseline topology with offline node among others
+     * {@link IgniteException} is thrown.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void setConsistenceIdsWithOfflineBaselineNode() throws Exception {
+        Ignite ignite = startGrids(2);
+
+        ignite.cluster().active(true);
+
+        ignite(0).createCache(defaultCacheConfiguration().setNodeFilter(
+            (IgnitePredicate<ClusterNode>)node -> node.attribute("some-attr") != null));
+
+        assertEquals(EXIT_CODE_UNEXPECTED_ERROR,
+            execute("--baseline", "set", "non-existing-node-id ," + consistentIds(ignite)));
     }
 }

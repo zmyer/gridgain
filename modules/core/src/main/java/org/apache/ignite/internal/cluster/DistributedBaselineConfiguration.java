@@ -105,10 +105,12 @@ public class DistributedBaselineConfiguration {
     @NotNull private <T> DistributePropertyListener<T> makeUpdateListener(Object defaultVal) {
         return (name, oldVal, newVal) -> {
             if (!Objects.equals(oldVal, newVal)) {
-                if (oldVal == null)
-                    log.info(format(DEFAULT_PROPERTY_UPDATE_MESSAGE, name, defaultVal, newVal));
-                else
-                    log.info(format(PROPERTY_UPDATE_MESSAGE, name, oldVal, newVal));
+                if (log.isInfoEnabled()) {
+                    if (oldVal == null)
+                        log.info(format(DEFAULT_PROPERTY_UPDATE_MESSAGE, name, defaultVal, newVal));
+                    else
+                        log.info(format(PROPERTY_UPDATE_MESSAGE, name, oldVal, newVal));
+                }
             }
         };
     }
@@ -128,10 +130,11 @@ public class DistributedBaselineConfiguration {
         }
 
         if (isLocalNodeCoordinator(ctx.discovery())) {
-            log.info(format(AUTO_ADJUST_CONFIGURED_MESSAGE,
-                (isBaselineAutoAdjustEnabled() ? "enabled" : "disabled"),
-                getBaselineAutoAdjustTimeout()
-            ));
+            if (log.isInfoEnabled())
+                log.info(format(AUTO_ADJUST_CONFIGURED_MESSAGE,
+                    (isBaselineAutoAdjustEnabled() ? "enabled" : "disabled"),
+                    getBaselineAutoAdjustTimeout()
+                ));
         }
     }
 
