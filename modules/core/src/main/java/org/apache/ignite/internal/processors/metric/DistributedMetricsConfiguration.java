@@ -15,17 +15,30 @@
  */
 package org.apache.ignite.internal.processors.metric;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.internal.processors.configuration.distributed.DistributedBooleanProperty;
 import org.apache.ignite.internal.processors.configuration.distributed.DistributedLongProperty;
 import org.apache.ignite.internal.processors.subscription.GridInternalSubscriptionProcessor;
 
 import static java.lang.String.format;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_MESSAGE_STATS_ENABLED;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_STAT_TOO_LONG_WAITING;
+import static org.apache.ignite.IgniteSystemProperties.getBoolean;
+import static org.apache.ignite.IgniteSystemProperties.getLong;
 import static org.apache.ignite.internal.processors.configuration.distributed.DistributedBooleanProperty.detachedBooleanProperty;
 import static org.apache.ignite.internal.processors.configuration.distributed.DistributedLongProperty.detachedLongProperty;
 
 public class DistributedMetricsConfiguration {
+    private static final boolean DEFAULT_DIAGNOSTIC_MESSAGE_STATS_ENABLED = getBoolean(IGNITE_MESSAGE_STATS_ENABLED, true);
+
+    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING = getLong(IGNITE_STAT_TOO_LONG_PROCESSING, 250);
+
+    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING = getLong(IGNITE_STAT_TOO_LONG_WAITING, 250);
+
     private final IgniteLogger log;
 
     private final DistributedBooleanProperty diagnosticMessageStatsEnabled = detachedBooleanProperty("diagnosticMessageStatsEnabled");
@@ -37,7 +50,7 @@ public class DistributedMetricsConfiguration {
     public DistributedMetricsConfiguration(GridInternalSubscriptionProcessor subscriptionProcessor, IgniteLogger log) {
         this.log = log;
 
-        subscriptionProcessor.registerDistributedConfigurationListener(dispatcher -> {
+        /*subscriptionProcessor.registerDistributedConfigurationListener(dispatcher -> {
             diagnosticMessageStatsEnabled.addListener(this::updateListener);
             diagnosticMessageStatTooLongProcessing.addListener(this::updateListener);
             diagnosticMessageStatTooLongWaiting.addListener(this::updateListener);
@@ -45,34 +58,51 @@ public class DistributedMetricsConfiguration {
             dispatcher.registerProperty(diagnosticMessageStatsEnabled);
             dispatcher.registerProperty(diagnosticMessageStatTooLongProcessing);
             dispatcher.registerProperty(diagnosticMessageStatTooLongWaiting);
-        });
+        });*/
     }
 
     private <T> void updateListener(String key, T oldVal, T newVal) {
         log.info(format("Metric distributed property '%s' was changed, oldVal: '%s', newVal: '%s'", key, oldVal, newVal));
     }
 
-    public boolean messageStatsEnabled() {
-        return diagnosticMessageStatsEnabled.get();
+    public boolean diagnosticMessageStatsEnabled() {
+        return diagnosticMessageStatsEnabled.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_ENABLED);
     }
 
-    public void messageStatsEnabled(boolean diagnosticMessageStatsEnabled) throws IgniteCheckedException {
-        this.diagnosticMessageStatsEnabled.propagateAsync(diagnosticMessageStatsEnabled);
+    public void diagnosticMessageStatsEnabled(boolean diagnosticMessageStatsEnabled) {
+        try {
+            this.diagnosticMessageStatsEnabled.propagateAsync(diagnosticMessageStatsEnabled);
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
     }
 
-    public long diagnosticStatTooLongProcessing() {
-        return diagnosticMessageStatTooLongProcessing.get();
+    public long diagnosticMessageStatTooLongProcessing() {
+        return diagnosticMessageStatTooLongProcessing.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING);
     }
 
-    public void setDiagnosticMessageStatTooLongProcessing(long diagnosticMessageStatTooLongProcessing) throws IgniteCheckedException {
-        this.diagnosticMessageStatTooLongProcessing.propagate(diagnosticMessageStatTooLongProcessing);
+    public void diagnosticMessageStatTooLongProcessing(long diagnosticMessageStatTooLongProcessing) {
+        try {
+            this.diagnosticMessageStatTooLongProcessing
+                .propagate(TimeUnit.MILLISECONDS.toNanos(diagnosticMessageStatTooLongProcessing));
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
     }
 
     public long diagnosticMessageStatTooLongWaiting() {
-        return diagnosticMessageStatTooLongWaiting.get();
+        return diagnosticMessageStatTooLongWaiting.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING);
     }
 
-    public void setDiagnosticMessageStatTooLongWaiting(long diagnosticMessageStatTooLongWaiting) throws IgniteCheckedException {
-        this.diagnosticMessageStatTooLongWaiting.propagateAsync(diagnosticMessageStatTooLongWaiting);
+    public void diagnosticMessageStatTooLongWaiting(long diagnosticMessageStatTooLongWaiting) {
+        try {
+            this.diagnosticMessageStatTooLongWaiting
+                .propagateAsync(TimeUnit.MILLISECONDS.toNanos(diagnosticMessageStatTooLongWaiting));
+        }
+        catch (IgniteCheckedException e) {
+            throw new IgniteException(e);
+        }
     }
 }

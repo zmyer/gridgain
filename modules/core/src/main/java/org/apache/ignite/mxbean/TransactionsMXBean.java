@@ -217,4 +217,24 @@ public interface TransactionsMXBean {
     @MXBeanParametersNames("limit")
     @MXBeanParametersDescriptions("Samples per second limit.")
     public void setTransactionTimeDumpSamplesPerSecondLimit(int limit);
+
+    @MXBeanDescription("A sd sgf.")
+    public boolean getDiagnosticMessageStatsEnabled();
+
+    @MXBeanDescription("A sd sgf.")
+    public void setDiagnosticMessageStatsEnabled(boolean enabled);
+
+    @MXBeanDescription("A sd sgf.")
+    public long getDiagnosticMessageStatTooLongProcessing();
+
+    @MXBeanDescription("A sd sgf.")
+    public void setDiagnosticMessageStatTooLongProcessing(long val);
+
+    @MXBeanDescription("A sd sgf.")
+    public long getDiagnosticMessageStatTooLongWaiting();
+
+    @MXBeanDescription("A sd sgf.")
+    public void setDiagnosticMessageStatTooLongWaiting(long val);
+
+
 }

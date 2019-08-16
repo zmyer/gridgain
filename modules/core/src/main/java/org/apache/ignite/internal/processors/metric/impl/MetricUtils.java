@@ -16,7 +16,6 @@
 
 package org.apache.ignite.internal.processors.metric.impl;
 
-import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.processors.metric.GridMetricManager;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.util.lang.IgnitePair;

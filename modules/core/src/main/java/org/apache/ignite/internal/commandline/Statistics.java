@@ -52,12 +52,20 @@ public class Statistics implements Command<MessageStatsTaskArg> {
     }
 
     private void printReport(String taskName, MessageStatsTaskResult taskResult, Logger log) {
+        if (taskResult.histograms().isEmpty()) {
+            log.info("No data for given metrics was found.");
+
+            return;
+        }
+
         String fmt1 = "%40s%12s%16s%14s%10s%10s%10s%10s%10s%10s%10s%10s%10s\n";
         String fmt2 = "%40s%12d%16f%14s%10s%10s%10s%10s%10s%10s%10s%10s%10s\n";
 
         log.info(format(fmt1, "", "", "", taskName, "", "", "", "", "", "", "", "", "", ""));
 
-        Object[] captionFmtObjects = new Object[taskResult.bounds().length + 3];
+        MessageStatsTaskResult.HistogramDataHolder sampleHistogram = taskResult.histograms().values().iterator().next();
+
+        Object[] captionFmtObjects = new Object[sampleHistogram.bounds().length + 4];
 
         captionFmtObjects[0] = "Message";
         captionFmtObjects[1] = "Total";
@@ -66,25 +74,29 @@ public class Statistics implements Command<MessageStatsTaskArg> {
 
         final int f = 4;
 
-        for (int i = 0; i < taskResult.bounds().length; i++)
-            captionFmtObjects[i + f] = "<= " + taskResult.bounds()[i];
+        for (int i = 0; i < sampleHistogram.bounds().length; i++)
+            captionFmtObjects[i + f] = "<= " + sampleHistogram.bounds()[i];
 
         log.info(format(fmt1, captionFmtObjects));
 
-        for (MessageStatsTaskResult.MessageStats entry : taskResult.resultTable()) {
-            Object[] objects = new Object[2 + entry.values().length];
+        for (Map.Entry<String, MessageStatsTaskResult.HistogramDataHolder> entry : taskResult.histograms().entrySet()) {
+            MessageStatsTaskResult.HistogramDataHolder histogram = entry.getValue();
 
-            Long total = LongStream.of(entry.values()).sum();
+            Object[] objects = new Object[4 + histogram.values().length];
 
-            objects[0] = entry.msgType();
-            objects[1] = total;
-            objects[2] = entry.time();
-            objects[3] = entry.time() / total.doubleValue();
+            Long totalCount = LongStream.of(histogram.values()).sum();
 
-            final int n = 3;
+            long totalTime = taskResult.time().getOrDefault(entry.getKey(), 0L);
 
-            for (int i = 0; i < entry.values().length; i++)
-                objects[i + n] = entry.values()[i];
+            objects[0] = entry.getKey();
+            objects[1] = totalCount;
+            objects[2] = totalTime;
+            objects[3] = totalTime == 0 ? 0 : totalCount.doubleValue() / totalTime;
+
+            final int n = 4;
+
+            for (int i = 0; i < histogram.values().length; i++)
+                objects[i + n] = histogram.values()[i];
 
             log.info(format(fmt2, objects));
         }

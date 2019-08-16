@@ -399,16 +399,6 @@ public class ClusterLocalNodeMetricsMXBeanImpl implements ClusterMetricsMXBean {
     }
 
     /** {@inheritDoc} */
-    @Override public HistogramMetric diagnosticMessagesProcessingTime(String msgType) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
-    @Override public HistogramMetric diagnosticMessagesQueueWaitingTime(String msgType) {
-        return null;
-    }
-
-    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(ClusterLocalNodeMetricsMXBeanImpl.class, this);
     }

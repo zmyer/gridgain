@@ -254,7 +254,7 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
         sysreg.register("CurrentThreadCpuTime", threads::getCurrentThreadCpuTime, null);
         sysreg.register("CurrentThreadUserTime", threads::getCurrentThreadUserTime, null);
 
-        distributedMetricsConfiguration = new DistributedMetricsConfiguration(ctx.internalSubscriptionProcessor());
+        distributedMetricsConfiguration = new DistributedMetricsConfiguration(ctx.internalSubscriptionProcessor(), log);
 
         MetricRegistry pmeReg = registry(PME_METRICS);
 
@@ -267,6 +267,8 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
             "Histogram of cache operations blocked PME durations in milliseconds.");
 
         registerTransactionMetrics();
+
+        registerMetricsForMessagesByType();
     }
 
     /** {@inheritDoc} */
@@ -405,11 +407,6 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
             for (Map.Entry<String, ? extends ExecutorService> entry : customExecSvcs.entrySet())
                 monitorExecutor(entry.getKey(), entry.getValue());
         }
-    }
-
-    /** */
-    public void registerManagers(GridIoManager gridIoManager) {
-        registerMetricsForMessagesByType();
     }
 
     /**
@@ -704,10 +701,10 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
 
     /** */
     private void registerMetricsForMessagesByType() {
-        MetricRegistry regProcessingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "processingTime"));
-        MetricRegistry regTotalProcessingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "totalProcessingTime"));
-        MetricRegistry regQueueWaitingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
-        MetricRegistry regTotalQueueWaitingTime = registry(metricName(DIAGNOSTICS, DIAGNOSTICS_MESSAGES, "totalQueueWaitingTime"));
+        MetricRegistry regProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "processingTime"));
+        MetricRegistry regTotalProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "totalProcessingTime"));
+        MetricRegistry regQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
+        MetricRegistry regTotalQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "totalQueueWaitingTime"));
 
         for (Class msgType : GridIoManager.MSG_MEASURED_TYPES) {
             regProcessingTime.histogram(
@@ -722,11 +719,11 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
                     "and before processing on current node, for message class " + msgType.getSimpleName()
             );
 
-            regTotalProcessingTime.metric(
+            regTotalProcessingTime.longAdderMetric(
                 msgType.getSimpleName(),
                 "Total time of message processing time on current node, for message class " + msgType.getSimpleName()
             );
-            regTotalQueueWaitingTime.metric(
+            regTotalQueueWaitingTime.longAdderMetric(
                 msgType.getSimpleName(),
                 "Total value of how much time is spent for messages to wait in queue after receiving " +
                     "and before processing on current node, for message class " + msgType.getSimpleName()
@@ -734,7 +731,7 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
         }
     }
 
-    public Metric metricByFullName(String metricFullName) {
+    public @Nullable Metric metricByFullName(String metricFullName) {
         IgnitePair<String> names = splitRegistryAndMetricName(metricFullName);
 
         if (names.get1() == null)

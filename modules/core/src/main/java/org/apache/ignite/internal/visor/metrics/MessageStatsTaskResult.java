@@ -18,7 +18,9 @@ package org.apache.ignite.internal.visor.metrics;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorDataTransferObject;
 
@@ -26,60 +28,58 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
-    private long[] bounds;
+    private Map<String, HistogramDataHolder> histograms;
 
-    private List<MessageStats> resultTable;
+    private Map<String, Long> time;
 
-    public MessageStatsTaskResult(List<MessageStats> resultTable, long[] bounds) {
-        this.resultTable = resultTable;
-
-        this.bounds = bounds;
+    public MessageStatsTaskResult(String name, HistogramDataHolder histogram, Long time) {
+        this(
+            new HashMap<String, HistogramDataHolder>() {{ put(name, histogram); }},
+            new HashMap<String, Long>() {{ put(name, time); }}
+        );
     }
 
-    public List<MessageStats> resultTable() {
-        return resultTable;
+    public MessageStatsTaskResult(Map<String, HistogramDataHolder> histograms, Map<String, Long> time) {
+        this.histograms = histograms;
+        this.time = time;
     }
 
-    public long[] bounds() {
-        return bounds;
+    public Map<String, HistogramDataHolder> histograms() {
+        return histograms;
+    }
+
+    public Map<String, Long> time() {
+        return time;
     }
 
     /** {@inheritDoc} */
     @Override protected void writeExternalData(ObjectOutput out) throws IOException {
-        U.writeLongArray(out, bounds);
-
-        U.writeCollection(out, resultTable);
+        U.writeMap(out, histograms);
+        U.writeMap(out, time);
     }
 
     /** {@inheritDoc} */
     @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
-        bounds = U.readLongArray(in);
-
-        resultTable = U.readList(in);
+        histograms = U.readMap(in);
+        time = U.readMap(in);
     }
 
-    public static class MessageStats {
-        /** */
-        private static final long serialVersionUID = 0L;
+    public static class HistogramDataHolder {
+        private final long[] bounds;
 
-        private String msgType;
+        private final long[] values;
 
-        private double time;
+        public HistogramDataHolder(HistogramMetric histogram) {
+            this(histogram.bounds(), histogram.value());
+        }
 
-        private long[] values;
-
-        public MessageStats(String msgType, double time, long[] values) {
-            this.msgType = msgType;
-            this.time = time;
+        public HistogramDataHolder(long[] bounds, long[] values) {
+            this.bounds = bounds;
             this.values = values;
         }
 
-        public String msgType() {
-            return msgType;
-        }
-
-        public double time() {
-            return time;
+        public long[] bounds() {
+            return bounds;
         }
 
         public long[] values() {

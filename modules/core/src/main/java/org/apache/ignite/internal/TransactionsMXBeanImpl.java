@@ -171,6 +171,36 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     }
 
     /** {@inheritDoc} */
+    @Override public boolean getDiagnosticMessageStatsEnabled() {
+        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatsEnabled();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setDiagnosticMessageStatsEnabled(boolean enabled) {
+        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatsEnabled(enabled);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getDiagnosticMessageStatTooLongProcessing() {
+        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongProcessing();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setDiagnosticMessageStatTooLongProcessing(long val) {
+        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongProcessing(val);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getDiagnosticMessageStatTooLongWaiting() {
+        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongWaiting();
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setDiagnosticMessageStatTooLongWaiting(long val) {
+        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongWaiting(val);
+    }
+
+    /** {@inheritDoc} */
     @Override public String toString() {
         return S.toString(TransactionsMXBeanImpl.class, this);
     }
