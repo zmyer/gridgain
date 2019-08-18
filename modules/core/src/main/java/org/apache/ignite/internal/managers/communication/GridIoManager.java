@@ -3544,7 +3544,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         Class<? extends Message> cls
     ) {
         return (HistogramMetric)
-            registry.findMetric(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, metricGroup, cls.getSimpleName()));
+            registry.findMetric(cls.getSimpleName());
     }
 
     /** */

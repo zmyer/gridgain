@@ -50,7 +50,7 @@ public class DistributedMetricsConfiguration {
     public DistributedMetricsConfiguration(GridInternalSubscriptionProcessor subscriptionProcessor, IgniteLogger log) {
         this.log = log;
 
-        /*subscriptionProcessor.registerDistributedConfigurationListener(dispatcher -> {
+        subscriptionProcessor.registerDistributedConfigurationListener(dispatcher -> {
             diagnosticMessageStatsEnabled.addListener(this::updateListener);
             diagnosticMessageStatTooLongProcessing.addListener(this::updateListener);
             diagnosticMessageStatTooLongWaiting.addListener(this::updateListener);
@@ -58,7 +58,7 @@ public class DistributedMetricsConfiguration {
             dispatcher.registerProperty(diagnosticMessageStatsEnabled);
             dispatcher.registerProperty(diagnosticMessageStatTooLongProcessing);
             dispatcher.registerProperty(diagnosticMessageStatTooLongWaiting);
-        });*/
+        });
     }
 
     private <T> void updateListener(String key, T oldVal, T newVal) {
