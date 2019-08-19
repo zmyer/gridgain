@@ -35,9 +35,11 @@ import static org.apache.ignite.internal.processors.configuration.distributed.Di
 public class DistributedMetricsConfiguration {
     private static final boolean DEFAULT_DIAGNOSTIC_MESSAGE_STATS_ENABLED = getBoolean(IGNITE_MESSAGE_STATS_ENABLED, true);
 
-    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING = getLong(IGNITE_STAT_TOO_LONG_PROCESSING, 250);
+    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING =
+        TimeUnit.MILLISECONDS.toNanos(getLong(IGNITE_STAT_TOO_LONG_PROCESSING, 250));
 
-    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING = getLong(IGNITE_STAT_TOO_LONG_WAITING, 250);
+    private static final long DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING =
+        TimeUnit.MILLISECONDS.toNanos(getLong(IGNITE_STAT_TOO_LONG_WAITING, 250));
 
     private final IgniteLogger log;
 

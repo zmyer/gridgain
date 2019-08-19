@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.cluster.ClusterNode;
-import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.visor.VisorTaskArgument;
 import org.apache.ignite.internal.visor.tx.VisorTxInfo;
 import org.apache.ignite.internal.visor.tx.VisorTxOperation;
@@ -168,41 +167,6 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /** {@inheritDoc} */
     @Override public void setTransactionTimeDumpSamplesPerSecondLimit(int limit) {
         ctx.cache().longTransactionTimeDumpSamplesPerSecondLimit(limit);
-    }
-
-    /** {@inheritDoc} */
-    @Override public boolean getDiagnosticMessageStatsEnabled() {
-        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatsEnabled();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setDiagnosticMessageStatsEnabled(boolean enabled) {
-        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatsEnabled(enabled);
-    }
-
-    /** {@inheritDoc} */
-    @Override public long getDiagnosticMessageStatTooLongProcessing() {
-        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongProcessing();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setDiagnosticMessageStatTooLongProcessing(long val) {
-        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongProcessing(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override public long getDiagnosticMessageStatTooLongWaiting() {
-        return ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongWaiting();
-    }
-
-    /** {@inheritDoc} */
-    @Override public void setDiagnosticMessageStatTooLongWaiting(long val) {
-        ctx.metric().distributedMetricsConfiguration().diagnosticMessageStatTooLongWaiting(val);
-    }
-
-    /** {@inheritDoc} */
-    @Override public String toString() {
-        return S.toString(TransactionsMXBeanImpl.class, this);
     }
 }
 
