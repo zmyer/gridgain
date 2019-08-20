@@ -164,11 +164,11 @@ import static org.apache.ignite.internal.processors.affinity.AffinityTopologyVer
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.CachePartitionPartialCountersMap.PARTIAL_COUNTERS_MAP_SINCE;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture.nextDumpTimeout;
 import static org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPreloader.DFLT_PRELOAD_RESEND_TIMEOUT;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_OPS_BLOCKED_DURATION;
 import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_DURATION;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_OPS_BLOCKED_DURATION_HISTOGRAM;
 import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_DURATION_HISTOGRAM;
 import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_METRICS;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_OPS_BLOCKED_DURATION;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.PME_OPS_BLOCKED_DURATION_HISTOGRAM;
 
 /**
  * Partition exchange manager.
@@ -222,6 +222,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
     /** */
     private final AtomicReference<GridDhtPartitionsExchangeFuture> lastFinishedFut = new AtomicReference<>();
+
+    /** This future will be completed once lastFinishedFut is initialized. */
+    private final GridFutureAdapter initialExchangeCompletedFut = new GridFutureAdapter();
 
     /** */
     private final ConcurrentMap<AffinityTopologyVersion, AffinityReadyFuture> readyFuts =
@@ -1015,6 +1018,17 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     }
 
     /**
+     * Synchronously waits for initial exchange is completed.
+     * In other words, this method guarantees that after its call,
+     * {@link GridCachePartitionExchangeManager#lastFinishedFuture()} should never return {@code null} value.
+     *
+     * @throws IgniteCheckedException If waiting failed.
+     */
+    public void waitForInitialExchange() throws IgniteCheckedException {
+        initialExchangeCompletedFut.get();
+    }
+
+    /**
      * @param fut Finished future.
      */
     public void lastFinishedFuture(GridDhtPartitionsExchangeFuture fut) {
@@ -1024,8 +1038,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             GridDhtPartitionsExchangeFuture cur = lastFinishedFut.get();
 
             if (fut.topologyVersion() != null && (cur == null || fut.topologyVersion().compareTo(cur.topologyVersion()) > 0)) {
-                if (lastFinishedFut.compareAndSet(cur, fut))
+                if (lastFinishedFut.compareAndSet(cur, fut)) {
+                    if (cur == null)
+                        initialExchangeCompletedFut.onDone(fut.error());
+
                     break;
+                }
             }
             else
                 break;

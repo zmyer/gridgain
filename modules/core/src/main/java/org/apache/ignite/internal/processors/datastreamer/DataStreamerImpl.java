@@ -850,8 +850,14 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
                 GridDhtPartitionsExchangeFuture exchFut = ctx.cache().context().exchange().lastFinishedFuture();
 
                 // Initial exchange is in progress, so need to wait for it.
-                if (exchFut == null)
-                    exchFut = ctx.cache().context().exchange().lastTopologyFuture();
+                if (exchFut == null) {
+                    ctx.cache().context().exchange().waitForInitialExchange();
+
+                    exchFut = ctx.cache().context().exchange().lastFinishedFuture();
+
+                    assert exchFut != null && exchFut.isDone() : "Initial exchange future must be done " +
+                        "[fut=" + exchFut + ']';
+                }
 
                 topVer = exchFut.get();
             }
