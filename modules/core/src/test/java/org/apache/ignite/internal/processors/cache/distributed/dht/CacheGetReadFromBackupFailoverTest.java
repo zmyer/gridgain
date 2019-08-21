@@ -38,6 +38,7 @@ import org.apache.ignite.internal.IgniteNodeAttributes;
 import org.apache.ignite.internal.NodeStoppingException;
 import org.apache.ignite.internal.processors.cache.GridCacheFuture;
 import org.apache.ignite.internal.processors.cache.GridCacheMvccManager;
+import org.apache.ignite.internal.processors.datastreamer.DataStreamerImpl;
 import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.X;
 import org.apache.ignite.internal.util.typedef.internal.U;
@@ -140,11 +141,15 @@ public class CacheGetReadFromBackupFailoverTest extends GridCommonAbstractTest {
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
         try (IgniteDataStreamer<Object, Object> stmr = ignite.dataStreamer(TX_CACHE)) {
+            ((DataStreamerImpl)stmr).maxRemapCount(Integer.MAX_VALUE);
+
             for (int i = 0; i < KEYS_CNT; i++)
                 stmr.addData(i, rnd.nextLong());
         }
 
         try (IgniteDataStreamer<Object, Object> stmr = ignite.dataStreamer(ATOMIC_CACHE)) {
+            ((DataStreamerImpl)stmr).maxRemapCount(Integer.MAX_VALUE);
+
             for (int i = 0; i < KEYS_CNT; i++)
                 stmr.addData(i, rnd.nextLong());
         }
