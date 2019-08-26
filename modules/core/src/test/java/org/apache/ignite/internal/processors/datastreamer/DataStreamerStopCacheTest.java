@@ -31,18 +31,14 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.affinity.rendezvous.RendezvousAffinityFunction;
 import org.apache.ignite.cache.store.CacheStoreAdapter;
-import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsExchangeFuture;
-import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionsFullMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.PartitionsExchangeAware;
 import org.apache.ignite.internal.util.typedef.X;
-import org.apache.ignite.lang.IgniteBiPredicate;
-import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.resources.IgniteInstanceResource;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.testframework.GridTestUtils;
@@ -60,9 +56,6 @@ import static org.apache.ignite.cache.CacheMode.PARTITIONED;
 public class DataStreamerStopCacheTest extends GridCommonAbstractTest {
     /** Default timeout for operations. */
     private static final long TIMEOUT = 5_000;
-
-    /** Flags indicates that custom cache store should be used. */
-    private boolean useCacheStore;
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -82,8 +75,6 @@ public class DataStreamerStopCacheTest extends GridCommonAbstractTest {
     /** */
     @Before
     public void before() throws Exception {
-        useCacheStore = false;
-
         stopAllGrids();
     }
 
@@ -104,16 +95,13 @@ public class DataStreamerStopCacheTest extends GridCommonAbstractTest {
         ccfg.setBackups(1);
         ccfg.setAffinity(new RendezvousAffinityFunction(false, 32));
 
-        if (useCacheStore)
-            ccfg.setCacheStoreFactory(FactoryBuilder.factoryOf(TestCacheStore.class));
+        ccfg.setCacheStoreFactory(FactoryBuilder.factoryOf(TestCacheStore.class));
 
         return ccfg;
     }
 
     @Test
     public void testLoadAllAndCacheStop() throws Exception {
-        useCacheStore = true;
-
         final AtomicReference<Exception> fail = new AtomicReference<>();
 
         final IgniteEx ig0 = startGrid(0);
@@ -147,68 +135,6 @@ public class DataStreamerStopCacheTest extends GridCommonAbstractTest {
             loadFinished.await(TIMEOUT, TimeUnit.MILLISECONDS));
 
         assertTrue("Expected CacheException is not thrown", X.hasCause(fail.get(), CacheException.class));
-    }
-
-    @Test
-    public void testDataStreamerOpMappedOnJoinedNode() throws Exception {
-        final AtomicReference<Exception> fail = new AtomicReference<>();
-
-        final IgniteEx ignite = startGrid(0);
-
-        IgniteCache<Integer, String> c = ignite.getOrCreateCache(DEFAULT_CACHE_NAME);
-
-        TestRecordingCommunicationSpi commSpi = TestRecordingCommunicationSpi.spi(ignite);
-
-        commSpi.blockMessages(new IgniteBiPredicate<ClusterNode, Message>() {
-            @Override public boolean apply(ClusterNode node, Message msg) {
-                if (msg instanceof GridDhtPartitionsFullMessage)
-                    return true;
-
-                return false;
-            }
-        });
-
-        GridTestUtils.runAsync(() -> {
-            try {
-                startGrid(1);
-            }
-            catch (Exception e) {
-                fail.compareAndSet(null, e);
-            }
-        });
-
-        Set<Integer> keys = new HashSet<>();
-        for (int i = 0; i < 32; ++i)
-            keys.add(i);
-
-        commSpi.waitForBlocked();
-
-        GridTestUtils.runAsync(() -> {
-            // Let's wait for loadAll() will start.
-            doSleep(TIMEOUT);
-
-            commSpi.stopBlock();
-        });
-
-        final CountDownLatch loadFinished = new CountDownLatch(1);
-
-        c.loadAll(keys, true, new CompletionListener() {
-            @Override public void onCompletion() {
-                loadFinished.countDown();
-            }
-
-            @Override public void onException(Exception e) {
-                fail.compareAndSet(null, e);
-
-                loadFinished.countDown();
-            }
-        });
-
-        assertTrue(
-            "loadAll() has not finished in " + (TIMEOUT * 2 )+ " millis",
-            loadFinished.await(TIMEOUT * 2, TimeUnit.MILLISECONDS));
-
-        assertNull("Unexpected exception [exc=" + fail.get() + ']', fail.get());
     }
 
     /**

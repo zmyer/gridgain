@@ -74,7 +74,9 @@ import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.affinity.GridAffinityProcessor;
 import org.apache.ignite.internal.processors.cache.CacheObject;
 import org.apache.ignite.internal.processors.cache.CacheObjectContext;
+import org.apache.ignite.internal.processors.cache.CacheStoppedException;
 import org.apache.ignite.internal.processors.cache.DynamicCacheDescriptor;
+import org.apache.ignite.internal.processors.cache.ExchangeActions;
 import org.apache.ignite.internal.processors.cache.GridCacheAdapter;
 import org.apache.ignite.internal.processors.cache.GridCacheContext;
 import org.apache.ignite.internal.processors.cache.GridCacheEntryEx;
@@ -847,18 +849,16 @@ public class DataStreamerImpl<K, V> implements IgniteDataStreamer<K, V>, Delayed
             AffinityTopologyVersion topVer;
 
             if (!cctx.isLocal()) {
-                GridDhtPartitionsExchangeFuture exchFut = ctx.cache().context().exchange().lastFinishedFuture();
+                GridDhtPartitionsExchangeFuture exchFut = ctx.cache().context().exchange().lastTopologyFuture();
 
-                // Initial exchange is in progress, so need to wait for it.
-                if (exchFut == null) {
-                    ctx.cache().context().exchange().waitForInitialExchange();
+                if (!exchFut.isDone()) {
+                    ExchangeActions acts = exchFut.exchangeActions();
 
-                    exchFut = ctx.cache().context().exchange().lastFinishedFuture();
-
-                    assert exchFut != null && exchFut.isDone() : "Initial exchange future must be done " +
-                        "[fut=" + exchFut + ']';
+                    if (acts != null && acts.cacheStopped(CU.cacheId(cacheName)))
+                        throw new CacheStoppedException(cacheName);
                 }
 
+                // It is safe to block here even if the cache gate is acquired.
                 topVer = exchFut.get();
             }
             else

@@ -223,9 +223,6 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     /** */
     private final AtomicReference<GridDhtPartitionsExchangeFuture> lastFinishedFut = new AtomicReference<>();
 
-    /** This future will be completed once lastFinishedFut is initialized. */
-    private final GridFutureAdapter initialExchangeCompletedFut = new GridFutureAdapter();
-
     /** */
     private final ConcurrentMap<AffinityTopologyVersion, AffinityReadyFuture> readyFuts =
         new ConcurrentSkipListMap<>();
@@ -1018,17 +1015,6 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
     }
 
     /**
-     * Synchronously waits for initial exchange is completed.
-     * In other words, this method guarantees that after its call,
-     * {@link GridCachePartitionExchangeManager#lastFinishedFuture()} should never return {@code null} value.
-     *
-     * @throws IgniteCheckedException If waiting failed.
-     */
-    public void waitForInitialExchange() throws IgniteCheckedException {
-        initialExchangeCompletedFut.get();
-    }
-
-    /**
      * @param fut Finished future.
      */
     public void lastFinishedFuture(GridDhtPartitionsExchangeFuture fut) {
@@ -1038,12 +1024,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
             GridDhtPartitionsExchangeFuture cur = lastFinishedFut.get();
 
             if (fut.topologyVersion() != null && (cur == null || fut.topologyVersion().compareTo(cur.topologyVersion()) > 0)) {
-                if (lastFinishedFut.compareAndSet(cur, fut)) {
-                    if (cur == null)
-                        initialExchangeCompletedFut.onDone(fut.error());
-
+                if (lastFinishedFut.compareAndSet(cur, fut))
                     break;
-                }
             }
             else
                 break;
