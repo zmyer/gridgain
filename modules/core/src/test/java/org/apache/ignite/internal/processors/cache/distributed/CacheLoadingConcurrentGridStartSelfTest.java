@@ -152,8 +152,6 @@ public class CacheLoadingConcurrentGridStartSelfTest extends GridCommonAbstractT
                 @Override public void apply(Ignite grid) {
                     try (IgniteDataStreamer<Integer, String> dataStreamer = grid.dataStreamer(DEFAULT_CACHE_NAME)) {
                         dataStreamer.allowOverwrite(allowOverwrite);
-                        ((DataStreamerImpl)dataStreamer).maxRemapCount(Integer.MAX_VALUE);
-
 
                         for (int i = 0; i < getKeysCnt(); i++)
                             dataStreamer.addData(i, Integer.toString(i));
