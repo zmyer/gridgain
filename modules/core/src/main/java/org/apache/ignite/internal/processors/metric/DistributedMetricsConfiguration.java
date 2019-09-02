@@ -81,7 +81,9 @@ public class DistributedMetricsConfiguration {
     }
 
     public long diagnosticMessageStatTooLongProcessing() {
-        return diagnosticMessageStatTooLongProcessing.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING);
+        return TimeUnit.NANOSECONDS.toMillis(
+            diagnosticMessageStatTooLongProcessing.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_PROCESSING)
+        );
     }
 
     public void diagnosticMessageStatTooLongProcessing(long diagnosticMessageStatTooLongProcessing) {
@@ -95,7 +97,9 @@ public class DistributedMetricsConfiguration {
     }
 
     public long diagnosticMessageStatTooLongWaiting() {
-        return diagnosticMessageStatTooLongWaiting.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING);
+        return TimeUnit.NANOSECONDS.toMillis(
+            diagnosticMessageStatTooLongWaiting.getOrDefault(DEFAULT_DIAGNOSTIC_MESSAGE_STATS_TOO_LONG_WAITING)
+        );
     }
 
     public void diagnosticMessageStatTooLongWaiting(long diagnosticMessageStatTooLongWaiting) {
