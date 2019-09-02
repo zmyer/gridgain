@@ -574,10 +574,6 @@ public abstract class IgniteUtils {
     public static boolean IGNITE_MBEANS_DISABLED =
         IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_MBEANS_DISABLED);
 
-    /** Ignite test features enabled flag. */
-    public static boolean IGNITE_TEST_FEATURES_ENABLED =
-        IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_TEST_FEATURES_ENABLED);
-
     /** */
     private static final boolean assertionsEnabled;
 
@@ -1077,13 +1073,6 @@ public abstract class IgniteUtils {
      */
     public static long currentTimeMillis() {
         return curTimeMillis;
-    }
-
-    /**
-     * @return Value of {@link System#nanoTime()} in microseconds.
-     */
-    public static long microTime() {
-        return System.nanoTime() / 1000;
     }
 
     /**
@@ -5432,6 +5421,45 @@ public abstract class IgniteUtils {
             map.put((K)in.readObject(), (V)in.readObject());
 
         return map;
+    }
+
+
+    /**
+     * Calculate a hashCode for an array.
+     *
+     * @param obj Object.
+     */
+    public static int hashCode(Object obj) {
+        if(obj == null)
+            return 0;
+
+        if (obj.getClass().isArray()) {
+            if (obj instanceof byte[])
+                return Arrays.hashCode((byte[])obj);
+            if (obj instanceof short[])
+                return Arrays.hashCode((short[])obj);
+            if (obj instanceof int[])
+                return Arrays.hashCode((int[])obj);
+            if (obj instanceof long[])
+                return Arrays.hashCode((long[])obj);
+            if (obj instanceof float[])
+                return Arrays.hashCode((float[])obj);
+            if (obj instanceof double[])
+                return Arrays.hashCode((double[])obj);
+            if (obj instanceof char[])
+                return Arrays.hashCode((char[])obj);
+            if (obj instanceof boolean[])
+                return Arrays.hashCode((boolean[])obj);
+
+            int result = 1;
+
+            for (Object element : (Object[])obj)
+                result = 31 * result + hashCode(element);
+
+            return result;
+        }
+        else
+            return obj.hashCode();
     }
 
     /**

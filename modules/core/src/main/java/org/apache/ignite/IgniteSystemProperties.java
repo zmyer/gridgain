@@ -16,13 +16,13 @@
 
 package org.apache.ignite;
 
+import javax.net.ssl.HostnameVerifier;
 import java.io.Serializable;
 import java.lang.management.RuntimeMXBean;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
-import javax.net.ssl.HostnameVerifier;
 import org.apache.ignite.cache.CacheEntryProcessor;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.configuration.CacheConfiguration;
@@ -91,10 +91,19 @@ public final class IgniteSystemProperties {
     /**
      * If this system property is set to {@code false} - no checks for new versions will
      * be performed by Ignite. By default, Ignite periodically checks for the new
-     * version and prints out the message into the log if new version of Ignite is
+     * version and prints out the message into the log if a new version of Ignite is
      * available for download.
+     *
+     * Update notifier enabled flag is a cluster-wide value and determined according to the local setting
+     * during the start of the first node in the cluster. The chosen value will survive the first node shutdown
+     * and will override the property value on all newly joining nodes.
      */
     public static final String IGNITE_UPDATE_NOTIFIER = "IGNITE_UPDATE_NOTIFIER";
+
+    /**
+     * Url of updates service.
+     */
+    public static final String GRIDGAIN_UPDATE_URL = "GRIDGAIN_UPDATE_URL";
 
     /**
      * This system property defines interval in milliseconds in which Ignite will check
@@ -814,8 +823,10 @@ public final class IgniteSystemProperties {
     /** Max amount of remembered errors for {@link GridLogThrottle}. */
     public static final String IGNITE_LOG_THROTTLE_CAPACITY = "IGNITE_LOG_THROTTLE_CAPACITY";
 
-    /** If this property is set, {@link DataStorageConfiguration#isWriteThrottlingEnabled()}
-     * will be overridden to true regardless of initial value in configuration. */
+    /**
+     * If this property is set, {@link DataStorageConfiguration#isWriteThrottlingEnabled()}
+     * will be overridden to {@code true} regardless the initial value in the configuration.
+     */
     public static final String IGNITE_OVERRIDE_WRITE_THROTTLING_ENABLED = "IGNITE_OVERRIDE_WRITE_THROTTLING_ENABLED";
 
     /**
@@ -1293,6 +1304,13 @@ public final class IgniteSystemProperties {
      */
     public static final String INDEX_REBUILDING_PARALLELISM = "INDEX_REBUILDING_PARALLELISM";
 
+    /** Enable write rebalnce statistics into log. Default: false */
+    public static final String IGNITE_WRITE_REBALANCE_STATISTICS = "IGNITE_WRITE_REBALANCE_STATISTICS";
+
+    /**  Enable write rebalnce statistics by partitions into log. Default: false */
+    public static final String IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS =
+        "IGNITE_WRITE_REBALANCE_PARTITION_STATISTICS";
+
     /**
      * Threshold timeout for long transactions, if transaction exceeds it, it will be dumped in log with
      * information about how much time did it spent in system time (time while aquiring locks, preparing,
@@ -1316,6 +1334,12 @@ public final class IgniteSystemProperties {
      */
     public static final String IGNITE_TRANSACTION_TIME_DUMP_SAMPLES_PER_SECOND_LIMIT =
         "IGNITE_TRANSACTION_TIME_DUMP_SAMPLES_PER_SECOND_LIMIT";
+
+    /**
+     * Disables smart DR throttling. Default value is <code>false</code>.
+     */
+    public static final String IGNITE_DISABLE_SMART_DR_THROTTLING =
+        "IGNITE_DISABLE_SMART_DR_THROTTLING";
 
     /**
      * Enforces singleton.

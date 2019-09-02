@@ -35,13 +35,11 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.function.IntSupplier;
-
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.GridKernalContext;
 import org.apache.ignite.internal.managers.GridManagerAdapter;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
-import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxLocal;
 import org.apache.ignite.internal.processors.metric.impl.AtomicLongMetric;
 import org.apache.ignite.internal.processors.metric.impl.DoubleMetricImpl;
 import org.apache.ignite.internal.processors.timeout.GridTimeoutProcessor;
@@ -59,6 +57,11 @@ import org.jetbrains.annotations.Nullable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_PHY_RAM;
 import static org.apache.ignite.internal.managers.communication.GridIoManager.MSG_HISTOGRAM_THRESHOLDS;
+import static org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager.METRIC_SYSTEM_TIME_HISTOGRAM;
+import static org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager.METRIC_TIME_BUCKETS;
+import static org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager.METRIC_TOTAL_SYSTEM_TIME;
+import static org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager.METRIC_TOTAL_USER_TIME;
+import static org.apache.ignite.internal.processors.cache.transactions.IgniteTxManager.METRIC_USER_TIME_HISTOGRAM;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.splitRegistryAndMetricName;
 
@@ -121,9 +124,6 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** System metrics prefix. */
     public static final String SYS_METRICS = "sys";
 
-    /** System metrics prefix. */
-    public static final String DIAGNOSTIC_METRICS = "diagnostic";
-
     /** Partition map exchange metrics prefix. */
     public static final String PME_METRICS = "pme";
 
@@ -133,8 +133,14 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** GC CPU load metric name. */
     public static final String GC_CPU_LOAD = "GcCpuLoad";
 
+    /** GC CPU load metric description. */
+    public static final String GC_CPU_LOAD_DESCRIPTION = "GC CPU load.";
+
     /** CPU load metric name. */
     public static final String CPU_LOAD = "CpuLoad";
+
+    /** CPU load metric description. */
+    public static final String CPU_LOAD_DESCRIPTION = "CPU load.";
 
     /** Up time metric name. */
     public static final String UP_TIME = "UpTime";
@@ -154,8 +160,8 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** Metrics of diagnotics messages section. */
     public static final String DIAGNOSTICS_MESSAGES = "messages";
 
-    /** Metric registry name for transaction metrics. */
-    public static final String TRANSACTION_METRICS = "transactions";
+    /** System metrics prefix. */
+    public static final String DIAGNOSTIC_METRICS = "diagnostic";
 
     /** PME duration metric name. */
     public static final String PME_DURATION = "Duration";
@@ -208,9 +214,6 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
     /** Distributed metrics configuration. */
     private DistributedMetricsConfiguration distributedMetricsConfiguration;
 
-    /** Group for a grid managers. */
-    public static final String GRID_MANAGERS = "gridManagers";
-
     /** */
     public static final String MSG_STAT_PROCESSING_TIME = "MessageProcessingTime";
 
@@ -242,8 +245,8 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
 
         MetricRegistry sysreg = registry(SYS_METRICS);
 
-        gcCpuLoad = sysreg.doubleMetric(GC_CPU_LOAD, "GC CPU load.");
-        cpuLoad = sysreg.doubleMetric(CPU_LOAD, "CPU load.");
+        gcCpuLoad = sysreg.doubleMetric(GC_CPU_LOAD, GC_CPU_LOAD_DESCRIPTION);
+        cpuLoad = sysreg.doubleMetric(CPU_LOAD, CPU_LOAD_DESCRIPTION);
 
         sysreg.register("SystemLoadAverage", os::getSystemLoadAverage, Double.class, null);
         sysreg.register(UP_TIME, rt::getUptime, null);
@@ -565,19 +568,19 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
 
     /** */
     private void registerTransactionMetrics() {
-        MetricRegistry reg = registry(metricName(DIAGNOSTIC_METRICS, TRANSACTION_METRICS));
+        MetricRegistry reg = registry(TX_METRICS);
 
-        reg.longAdderMetric(GridNearTxLocal.METRIC_TOTAL_SYSTEM_TIME, "Total transactions system time on node.");
-        reg.longAdderMetric(GridNearTxLocal.METRIC_TOTAL_USER_TIME, "Total transactions user time on node.");
+        reg.longAdderMetric(METRIC_TOTAL_SYSTEM_TIME, "Total transactions system time on node.");
+        reg.longAdderMetric(METRIC_TOTAL_USER_TIME, "Total transactions user time on node.");
 
         reg.histogram(
-            GridNearTxLocal.METRIC_SYSTEM_TIME_HISTOGRAM,
-            GridNearTxLocal.METRIC_TIME_BUCKETS,
+            METRIC_SYSTEM_TIME_HISTOGRAM,
+            METRIC_TIME_BUCKETS,
             "Transactions system times on node represented as histogram."
         );
         reg.histogram(
-            GridNearTxLocal.METRIC_USER_TIME_HISTOGRAM,
-            GridNearTxLocal.METRIC_TIME_BUCKETS,
+            METRIC_USER_TIME_HISTOGRAM,
+            METRIC_TIME_BUCKETS,
             "Transactions user times on node represented as histogram."
         );
     }

@@ -39,6 +39,8 @@ import org.apache.ignite.IgniteLogger;
 import org.apache.ignite.IgniteSystemProperties;
 import org.apache.ignite.internal.managers.communication.GridIoManager;
 import org.apache.ignite.internal.managers.communication.GridIoPolicy;
+import org.apache.ignite.internal.managers.communication.TraceRunnable;
+import org.apache.ignite.internal.processors.tracing.Tracing;
 import org.apache.ignite.internal.util.tostring.GridToStringExclude;
 import org.apache.ignite.internal.util.typedef.internal.A;
 import org.apache.ignite.internal.util.typedef.internal.S;
@@ -625,18 +627,26 @@ public class StripedExecutor implements ExecutorService {
     /**
      *
      */
-    public interface StripeAwareRunnable extends Runnable {
+    public abstract static class StripeAwareRunnable extends TraceRunnable {
+        /**
+         * @param tracing Tracing processor.
+         * @param name Name of new span.
+         */
+        public StripeAwareRunnable(Tracing tracing, String name) {
+            super(tracing, name);
+        }
+
         /**
          *
          * @return
          */
-        public Message message();
+        public abstract Message message();
 
         /**
          * Called when message is assigned to stripe before enqueuing.
          * @param stripe Stripe.
          */
-        public void assign(Stripe stripe);
+        public abstract void assign(Stripe stripe);
     }
 
     /**

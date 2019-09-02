@@ -54,6 +54,9 @@ import org.apache.ignite.mxbean.WorkersControlMXBean;
 import org.apache.ignite.thread.IgniteStripedThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
 
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_TEST_FEATURES_ENABLED;
+import static org.apache.ignite.IgniteSystemProperties.getBoolean;
+
 /**
  * Class that registers and unregisters MBeans for kernal.
  */
@@ -182,7 +185,7 @@ public class IgniteMBeansManager {
                 registerExecutorMBean(entry.getKey(), entry.getValue());
         }
 
-        if (U.IGNITE_TEST_FEATURES_ENABLED) {
+        if (getBoolean(IGNITE_TEST_FEATURES_ENABLED, false)) {
             WorkersControlMXBean workerCtrlMXBean = new WorkersControlMXBeanImpl(workersRegistry);
 
             registerMBean("Kernal", workerCtrlMXBean.getClass().getSimpleName(),
