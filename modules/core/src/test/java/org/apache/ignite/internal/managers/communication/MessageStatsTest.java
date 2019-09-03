@@ -16,17 +16,20 @@
 package org.apache.ignite.internal.managers.communication;
 
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.DiagnosticMXBeanImpl;
+import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.mxbean.DiagnosticMXBean;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.metric.jmx.JmxMetricExporterSpi;
+import org.apache.ignite.testframework.LogListener;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -42,6 +45,9 @@ import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
 public class MessageStatsTest extends GridCommonAbstractTest {
     /** */
     private static final String CACHE_NAME = "test";
+
+    /** */
+    private LogListener slowMsgLogListener = LogListener.matches("Slow message.*").build();
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -72,10 +78,10 @@ public class MessageStatsTest extends GridCommonAbstractTest {
     /** */
     @Test
     public void testStats() throws Exception {
-        startGrids(2);
+        IgniteEx ignite = startGrids(2);
 
         DiagnosticMXBean mxBean =
-            getMxBean(grid(0).name(), "Diagnostic", DiagnosticMXBean.class, DiagnosticMXBeanImpl.class);
+            getMxBean(ignite.name(), "Diagnostic", DiagnosticMXBean.class, DiagnosticMXBeanImpl.class);
 
         assertTrue(mxBean.getDiagnosticMessageStatsEnabled());
 
@@ -89,6 +95,22 @@ public class MessageStatsTest extends GridCommonAbstractTest {
             getMxBean(newSrv.name(), "Diagnostic", DiagnosticMXBean.class, DiagnosticMXBeanImpl.class);
 
         assertEquals(testTooLongProcessing, newSrvMxBean.getDiagnosticMessageStatTooLongProcessing());
+
+        mxBean.setDiagnosticMessageStatTooLongProcessing(250);
+
+        IgniteCache<Integer, Integer> cache = ignite.getOrCreateCache(CACHE_NAME);
+
+        cache.put(1, 1);
+
+        doInTransaction(ignite, () -> {
+            cache.put(1, cache.get(1) + 1);
+
+            return null;
+        });
+
+        ignite.context().io().dumpProcessedMessagesStats();
+
+        assertTrue(slowMsgLogListener.check());
     }
 
     /**
