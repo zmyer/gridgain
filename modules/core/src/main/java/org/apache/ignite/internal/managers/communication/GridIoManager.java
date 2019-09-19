@@ -1488,7 +1488,7 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     private String slowMsgWarning(ProcStat stat, ZoneId sysZoneId) {
         GridStringBuilder sb = new GridStringBuilder();
 
-        sb.a(">>><DBG> Slow message: ").
+        sb.a("Slow message: ").
             a("enqueueTs=").
             a(LocalDateTime.ofInstant(ofEpochMilli(stat.enqueueTimestamp()), sysZoneId).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).
             a(", waitTime=").

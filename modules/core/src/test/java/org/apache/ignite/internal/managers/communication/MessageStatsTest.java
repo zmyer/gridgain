@@ -23,12 +23,14 @@ import org.apache.ignite.configuration.CacheConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.DiagnosticMXBeanImpl;
 import org.apache.ignite.internal.IgniteEx;
+import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.mxbean.DiagnosticMXBean;
 import org.apache.ignite.plugin.extensions.communication.Message;
 import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
 import org.apache.ignite.spi.metric.jmx.JmxMetricExporterSpi;
+import org.apache.ignite.testframework.ListeningTestLogger;
 import org.apache.ignite.testframework.LogListener;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
@@ -47,7 +49,13 @@ public class MessageStatsTest extends GridCommonAbstractTest {
     private static final String CACHE_NAME = "test";
 
     /** */
-    private LogListener slowMsgLogListener = LogListener.matches("Slow message.*").build();
+    private LogListener slowMsgLogListener = LogListener.matches("Slow message").build();
+
+    /** */
+    private final ListeningTestLogger testLog = new ListeningTestLogger(false, log());
+
+    /** */
+    private volatile boolean slowPrepare = false;
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -64,6 +72,10 @@ public class MessageStatsTest extends GridCommonAbstractTest {
         cfg.setMetricExporterSpi(new JmxMetricExporterSpi());
 
         cfg.setCommunicationSpi(new TestCommunicationSpi());
+
+        testLog.registerListener(slowMsgLogListener);
+
+        cfg.setGridLogger(testLog);
 
         return cfg;
     }
@@ -102,11 +114,15 @@ public class MessageStatsTest extends GridCommonAbstractTest {
 
         cache.put(1, 1);
 
+        slowPrepare = true;
+
         doInTransaction(ignite, () -> {
             cache.put(1, cache.get(1) + 1);
 
             return null;
         });
+
+        slowPrepare = false;
 
         ignite.context().io().dumpProcessedMessagesStats();
 
@@ -123,8 +139,8 @@ public class MessageStatsTest extends GridCommonAbstractTest {
             if (msg instanceof GridIoMessage) {
                 Object msg0 = ((GridIoMessage)msg).message();
 
-                //if (slowPrepare && msg0 instanceof GridNearTxPrepareRequest)
-                //    doSleep(SYSTEM_DELAY);
+                if (slowPrepare && msg0 instanceof GridNearTxPrepareRequest)
+                    doSleep(500);
             }
 
             super.sendMessage(node, msg, ackClosure);
