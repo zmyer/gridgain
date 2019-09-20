@@ -20,7 +20,7 @@ import org.apache.ignite.internal.commandline.argument.CommandArg;
 /**
  *
  */
-public enum MetricsCommandArg implements CommandArg {
+public enum StatisticsCommandArg implements CommandArg {
     /** */
     STATS("--stats"),
 
@@ -31,7 +31,7 @@ public enum MetricsCommandArg implements CommandArg {
     private final String name;
 
     /** */
-    MetricsCommandArg(String name) {
+    StatisticsCommandArg(String name) {
         this.name = name;
     }
 

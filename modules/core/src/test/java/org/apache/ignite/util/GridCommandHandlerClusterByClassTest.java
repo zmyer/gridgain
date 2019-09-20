@@ -29,6 +29,7 @@ import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.internal.commandline.CommandHandler;
 import org.apache.ignite.internal.commandline.CommandList;
+import org.apache.ignite.internal.commandline.StatisticsCommandArg;
 import org.apache.ignite.internal.commandline.argument.CommandArg;
 import org.apache.ignite.internal.commandline.cache.CacheSubcommands;
 import org.apache.ignite.internal.pagemem.wal.record.DataEntry;
@@ -84,6 +85,7 @@ import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_IL
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_INVALID_ARGUMENTS;
 import static org.apache.ignite.internal.commandline.CommandHandler.EXIT_CODE_OK;
 import static org.apache.ignite.internal.commandline.CommandHandler.UTILITY_NAME;
+import static org.apache.ignite.internal.commandline.CommandList.STATISTICS;
 import static org.apache.ignite.internal.commandline.CommandList.WAL;
 import static org.apache.ignite.internal.commandline.OutputFormat.MULTI_LINE;
 import static org.apache.ignite.internal.commandline.OutputFormat.SINGLE_LINE;
@@ -1556,5 +1558,28 @@ public class GridCommandHandlerClusterByClassTest extends GridCommandHandlerClus
         of("print", "delete")
             .peek(c -> assertEquals(EXIT_CODE_OK, execute(WAL.text(), c)))
             .forEach(c -> assertContains(log, testOut.toString(), warning));
+    }
+
+    @Test
+    public void testMessageStat() {
+        boolean autoConfirmation = this.autoConfirmation;
+
+        try {
+            this.autoConfirmation = false;
+
+            execute(
+                STATISTICS.text(),
+                StatisticsCommandArg.NODE.toString(),
+                crd.localNode().id().toString(),
+                StatisticsCommandArg.STATS.toString(),
+                "diagnostic.messages.GridNearSingleGetRequest"
+            );
+        }
+        catch (Throwable e) {
+            throw e;
+        }
+        finally {
+            this.autoConfirmation = autoConfirmation;
+        }
     }
 }

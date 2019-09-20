@@ -264,6 +264,8 @@ public class CommandHandler {
                     break;
                 }
                 catch (Throwable e) {
+                    e.printStackTrace();
+
                     if (!isAuthError(e))
                         throw e;
 

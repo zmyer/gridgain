@@ -26,6 +26,7 @@ import org.apache.ignite.compute.ComputeJobResult;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
+import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.lang.IgnitePair;
 import org.apache.ignite.internal.visor.VisorJob;
@@ -44,6 +45,7 @@ import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.SEPA
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.splitRegistryAndMetricName;
 import static org.apache.ignite.internal.util.lang.GridFunc.transform;
 
+@GridInternal
 public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, MessageStatsTaskResult, MessageStatsTaskResult> {
     /** */
     private static final long serialVersionUID = 0L;

@@ -33,6 +33,10 @@ public class MessageStatsTaskArg extends VisorDataTransferObject {
     private String metrics;
 
     /** */
+    public MessageStatsTaskArg() {
+    }
+
+    /** */
     public MessageStatsTaskArg(UUID nodeId, String metrics) {
         this.nodeId = nodeId;
         this.metrics = metrics;
@@ -48,13 +52,13 @@ public class MessageStatsTaskArg extends VisorDataTransferObject {
 
     /** {@inheritDoc} */
     @Override protected void writeExternalData(ObjectOutput out) throws IOException {
-        U.writeUuid(out, nodeId);
-        U.writeString(out, metrics);
+        //U.writeUuid(out, nodeId);
+        //U.writeString(out, metrics);
     }
 
     /** {@inheritDoc} */
     @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
-        nodeId = U.readUuid(in);
-        metrics = U.readString(in);
+        //nodeId = U.readUuid(in);
+        //metrics = U.readString(in);
     }
 }

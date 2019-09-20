@@ -16,6 +16,7 @@
 package org.apache.ignite.internal.commandline;
 
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
@@ -25,12 +26,15 @@ import org.apache.ignite.internal.client.GridClientConfiguration;
 import org.apache.ignite.internal.visor.metrics.MessageStatsTask;
 import org.apache.ignite.internal.visor.metrics.MessageStatsTaskArg;
 import org.apache.ignite.internal.visor.metrics.MessageStatsTaskResult;
+import org.apache.ignite.internal.visor.verify.CacheFilterEnum;
+import org.apache.ignite.internal.visor.verify.VisorIdleVerifyDumpTask;
+import org.apache.ignite.internal.visor.verify.VisorIdleVerifyDumpTaskArg;
 
 import static java.lang.String.format;
 import static org.apache.ignite.internal.commandline.CommandList.STATISTICS;
 import static org.apache.ignite.internal.commandline.CommandLogger.optional;
-import static org.apache.ignite.internal.commandline.MetricsCommandArg.NODE;
-import static org.apache.ignite.internal.commandline.MetricsCommandArg.STATS;
+import static org.apache.ignite.internal.commandline.StatisticsCommandArg.NODE;
+import static org.apache.ignite.internal.commandline.StatisticsCommandArg.STATS;
 import static org.apache.ignite.internal.commandline.TaskExecutor.executeTask;
 import static org.apache.ignite.internal.commandline.argument.CommandArgUtils.parseArgs;
 
@@ -122,12 +126,12 @@ public class Statistics implements Command<MessageStatsTaskArg> {
 
     /** {@inheritDoc} */
     @Override public void parseArguments(CommandArgIterator argIterator) {
-        Map<MetricsCommandArg, Class> argTypes = new EnumMap<MetricsCommandArg, Class>(MetricsCommandArg.class) {{
+        Map<StatisticsCommandArg, Class> argTypes = new EnumMap<StatisticsCommandArg, Class>(StatisticsCommandArg.class) {{
             put(NODE, UUID.class);
             put(STATS, String.class);
         }};
 
-        Map<MetricsCommandArg, Object> parsedArgs = parseArgs(argIterator, MetricsCommandArg.class, argTypes);
+        Map<StatisticsCommandArg, Object> parsedArgs = parseArgs(argIterator, StatisticsCommandArg.class, argTypes);
 
         arg = new MessageStatsTaskArg(
             (UUID) parsedArgs.get(NODE),

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.commandline.argument;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import org.apache.ignite.internal.commandline.ArgumentInfo;
 import org.apache.ignite.internal.commandline.CommandArgIterator;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,6 +57,13 @@ public class CommandArgUtils {
 
             E arg = of(str, argsClass);
 
+            if (arg == null) {
+                if (argIter.hasNextArg())
+                    continue;
+                else
+                    break;
+            }
+
             Class argClass = argumentTypesMap.get(arg);
 
             if (argClass == null)
@@ -65,7 +71,7 @@ public class CommandArgUtils {
 
             argIter.nextArg("");
 
-            switch (argClass.getName()) {
+            switch (argClass.getSimpleName()) {
                 case "String":
                     res.put(arg, argIter.nextArg(arg.argName()));
 
