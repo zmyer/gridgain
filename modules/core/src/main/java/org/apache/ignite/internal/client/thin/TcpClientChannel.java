@@ -83,7 +83,7 @@ import org.apache.ignite.internal.util.future.GridFutureAdapter;
 import org.apache.ignite.internal.util.typedef.F;
 import org.jetbrains.annotations.Nullable;
 
-import static org.apache.ignite.internal.client.thin.ProtocolVersion.LATEST_VER;
+import static org.apache.ignite.internal.client.thin.ProtocolVersion.CURRENT_VER;
 import static org.apache.ignite.internal.client.thin.ProtocolVersion.V1_0_0;
 import static org.apache.ignite.internal.client.thin.ProtocolVersion.V1_1_0;
 import static org.apache.ignite.internal.client.thin.ProtocolVersion.V1_2_0;
@@ -105,7 +105,7 @@ import static org.apache.ignite.internal.client.thin.ProtocolVersionFeature.PART
  */
 class TcpClientChannel implements ClientChannel {
     /** Protocol version used by default on first connection attempt. */
-    private static final ProtocolVersion DEFAULT_VERSION = LATEST_VER;
+    private static final ProtocolVersion DEFAULT_VERSION = CURRENT_VER;
 
     /** Supported protocol versions. */
     private static final Collection<ProtocolVersion> supportedVers = Arrays.asList(
