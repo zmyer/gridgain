@@ -161,6 +161,7 @@ import org.apache.ignite.internal.processors.cache.index.OptimizedMarshallerInde
 import org.apache.ignite.internal.processors.cache.index.QueryEntityValidationSelfTest;
 import org.apache.ignite.internal.processors.cache.index.SchemaExchangeSelfTest;
 import org.apache.ignite.internal.processors.cache.index.SqlTransactionCommandsWithMvccDisabledSelfTest;
+import org.apache.ignite.internal.processors.cache.index.StopNodeOnRebuildIndexFailureTest;
 import org.apache.ignite.internal.processors.cache.local.IgniteCacheLocalAtomicQuerySelfTest;
 import org.apache.ignite.internal.processors.cache.local.IgniteCacheLocalFieldsQuerySelfTest;
 import org.apache.ignite.internal.processors.cache.local.IgniteCacheLocalQueryCancelOrTimeoutSelfTest;
@@ -202,6 +203,7 @@ import org.apache.ignite.internal.processors.query.KillQueryFromNeighbourTest;
 import org.apache.ignite.internal.processors.query.KillQueryOnClientDisconnectTest;
 import org.apache.ignite.internal.processors.query.KillQueryTest;
 import org.apache.ignite.internal.processors.query.MultipleStatementsSqlQuerySelfTest;
+import org.apache.ignite.internal.processors.query.QueryJmxMetricsTest;
 import org.apache.ignite.internal.processors.query.RunningQueriesTest;
 import org.apache.ignite.internal.processors.query.SqlIllegalSchemaSelfTest;
 import org.apache.ignite.internal.processors.query.SqlIncompatibleDataTypeExceptionTest;
@@ -299,6 +301,7 @@ import org.junit.runners.Suite;
     QueryEntityValidationSelfTest.class,
     DuplicateKeyValueClassesSelfTest.class,
     GridCacheLazyQueryPartitionsReleaseTest.class,
+    StopNodeOnRebuildIndexFailureTest.class,
 
     // Dynamic index create/drop tests.
     SchemaExchangeSelfTest.class,
@@ -465,6 +468,7 @@ import org.junit.runners.Suite;
     CachePartitionedQueryDetailMetricsLocalSelfTest.class,
     CacheReplicatedQueryDetailMetricsDistributedSelfTest.class,
     CacheReplicatedQueryDetailMetricsLocalSelfTest.class,
+    QueryJmxMetricsTest.class,
 
     // Unmarshalling query test.
     IgniteCacheP2pUnmarshallingQueryErrorTest.class,
