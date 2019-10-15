@@ -57,6 +57,7 @@ import org.jetbrains.annotations.Nullable;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_PHY_RAM;
 import static org.apache.ignite.internal.managers.communication.GridIoManager.MSG_HISTOGRAM_THRESHOLDS;
+import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.SEPARATOR;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.splitRegistryAndMetricName;
 
@@ -692,10 +693,15 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
 
     /** */
     private void registerMetricsForMessagesByType() {
-        MetricRegistry regProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "processingTime"));
-        MetricRegistry regTotalProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "totalProcessingTime"));
-        MetricRegistry regQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
-        MetricRegistry regTotalQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "totalQueueWaitingTime"));
+        final String PROCESSING_TIME = "processingTime";
+        final String QUEUE_WAITING_TIME = "queueWaitingTime";
+        final String TOTAL_PROCESSING_TIME = "totalProcessingTime";
+        final String TOTAL_QUEUE_WAITING_TIME = "totalQueueWaitingTime";
+
+        MetricRegistry regProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, PROCESSING_TIME));
+        MetricRegistry regTotalProcessingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, TOTAL_PROCESSING_TIME));
+        MetricRegistry regQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, QUEUE_WAITING_TIME));
+        MetricRegistry regTotalQueueWaitingTime = registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, TOTAL_QUEUE_WAITING_TIME));
 
         for (Class msgType : GridIoManager.MSG_MEASURED_TYPES) {
             regProcessingTime.histogram(

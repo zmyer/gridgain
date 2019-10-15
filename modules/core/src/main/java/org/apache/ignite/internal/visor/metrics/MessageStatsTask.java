@@ -264,7 +264,8 @@ public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, Me
         }
 
         private String histoMetricToTotal(String histogramName) {
-            return "total" + new GridStringBuilder(Character.toUpperCase(histogramName.charAt(0)))
+            return "total" + new GridStringBuilder()
+                .a(Character.toUpperCase(histogramName.charAt(0)))
                 .a(histogramName.substring(1)).toString();
         }
     }

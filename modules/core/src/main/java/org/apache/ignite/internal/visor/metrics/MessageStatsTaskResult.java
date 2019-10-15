@@ -32,6 +32,10 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
 
     private Map<String, Long> time;
 
+    public MessageStatsTaskResult() {
+
+    }
+
     public MessageStatsTaskResult(String name, HistogramDataHolder histogram, Long time) {
         this(
             new HashMap<String, HistogramDataHolder>() {{ put(name, histogram); }},
