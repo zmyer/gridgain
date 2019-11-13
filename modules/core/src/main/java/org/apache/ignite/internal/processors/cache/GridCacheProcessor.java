@@ -759,10 +759,14 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             aff.cancelFutures(affErr);
         }
 
+        Set<String> toBeStopped = new HashSet<>();
+
         for (String cacheName : locCfgMgr.stopSequence()) {
             GridCacheAdapter<?, ?> cache = caches.remove(cacheName);
 
             if (cache != null) {
+                toBeStopped.add(cacheName);
+
                 stoppedCaches.put(cacheName, cache);
 
                 onKernalStop(cache, cancel);
@@ -773,11 +777,15 @@ public class GridCacheProcessor extends GridProcessorAdapter {
             GridCacheAdapter<?, ?> cache = entry.getValue();
 
             if (cache == caches.remove(entry.getKey())) {
+                toBeStopped.add(entry.getKey());
+
                 stoppedCaches.put(entry.getKey(), cache);
 
                 onKernalStop(entry.getValue(), cancel);
             }
         }
+
+        U.dumpStack(log, "GridCacheProcessor.onKernalStopCaches [toBeStopped=" + toBeStopped + ']');
     }
 
     /** {@inheritDoc} */
