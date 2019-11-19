@@ -34,7 +34,7 @@ import org.apache.ignite.internal.processors.cache.query.GridCacheQueryDetailMet
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryDetailMetricsKey;
 import org.apache.ignite.internal.processors.cache.query.GridCacheQueryType;
 import org.apache.ignite.internal.processors.query.GridQueryIndexing;
-import org.apache.ignite.internal.processors.query.QueryHistoryMetrics;
+import org.apache.ignite.internal.processors.query.QueryHistory;
 import org.apache.ignite.internal.processors.query.h2.IgniteH2Indexing;
 import org.apache.ignite.internal.processors.task.GridInternal;
 import org.apache.ignite.resources.IgniteInstanceResource;
@@ -108,7 +108,7 @@ public class QueryHistoryMetricsCollectorTask extends ComputeTaskAdapter<Long, C
                 .map(this::toQueryDetailMetrics);
 
             if (indexing instanceof IgniteH2Indexing) {
-                Collection<QueryHistoryMetrics> metrics = ((IgniteH2Indexing)indexing)
+                Collection<QueryHistory> metrics = ((IgniteH2Indexing)indexing)
                     .runningQueryManager().queryHistoryMetrics().values();
 
                 cacheMetricsStream = Stream.concat(
@@ -139,7 +139,7 @@ public class QueryHistoryMetricsCollectorTask extends ComputeTaskAdapter<Long, C
          * @param m Query history metric.
          * @return Query detail metrics adapter.
          */
-        private QueryDetailMetrics toQueryDetailMetrics(QueryHistoryMetrics m) {
+        private QueryDetailMetrics toQueryDetailMetrics(QueryHistory m) {
             return new QueryDetailMetrics()
                 .setQuery(m.query())
                 .setQueryType(SQL_FIELDS.name())
