@@ -300,12 +300,19 @@ public class GridMetricManager extends GridManagerAdapter<MetricExporterSpi> imp
      */
     public MetricRegistry registry(String name) {
         return registries.computeIfAbsent(name, n -> {
-            MetricRegistry mreg = new MetricRegistry(name, log);
+            MetricRegistry mreg = new MetricRegistry(name, name, log);
 
             notifyListeners(mreg, metricRegCreationLsnrs);
 
             return mreg;
         });
+    }
+
+    /**
+     * @return Registries snapshot.
+     */
+    public Map<String, MetricRegistry> registries() {
+        return registries;
     }
 
     /** {@inheritDoc} */

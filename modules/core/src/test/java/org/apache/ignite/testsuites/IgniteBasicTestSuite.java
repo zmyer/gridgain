@@ -18,6 +18,7 @@ package org.apache.ignite.testsuites;
 
 import org.apache.ignite.ClassPathContentLoggingTest;
 import org.apache.ignite.GridSuppressedExceptionSelfTest;
+import org.apache.ignite.internal.processors.failure.FailureProcessorLoggingTest;
 import org.apache.ignite.failure.FailureHandlerTriggeredTest;
 import org.apache.ignite.failure.OomFailureHandlerTest;
 import org.apache.ignite.failure.StopNodeFailureHandlerTest;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.GridFailFastNodeFailureDetectionSelfTest;
 import org.apache.ignite.internal.GridLifecycleAwareSelfTest;
 import org.apache.ignite.internal.GridLifecycleBeanSelfTest;
 import org.apache.ignite.internal.GridMBeansTest;
+import org.apache.ignite.internal.GridMbeansMiscTest;
 import org.apache.ignite.internal.GridNodeMetricsLogSelfTest;
 import org.apache.ignite.internal.GridPeerDeploymentRetryModifiedTest;
 import org.apache.ignite.internal.GridPeerDeploymentRetryTest;
@@ -94,7 +96,7 @@ import org.apache.ignite.internal.processors.odbc.OdbcConfigurationValidationSel
 import org.apache.ignite.internal.processors.odbc.OdbcEscapeSequenceSelfTest;
 import org.apache.ignite.internal.processors.odbc.SqlListenerUtilsTest;
 import org.apache.ignite.internal.product.GridProductVersionSelfTest;
-import org.apache.ignite.internal.product.IndexingFeatureIsNotAvailableTest;
+import org.apache.ignite.internal.product.FeatureIsNotAvailableTest;
 import org.apache.ignite.internal.util.collection.BitSetIntSetTest;
 import org.apache.ignite.internal.util.collection.ImmutableIntSetTest;
 import org.apache.ignite.internal.util.GridCleanerTest;
@@ -180,11 +182,12 @@ import org.junit.runners.Suite;
     GridNodeMetricsLogSelfTest.class,
     GridLocalIgniteSerializationTest.class,
     GridMBeansTest.class,
+    GridMbeansMiscTest.class,
     TransactionsMXBeanImplTest.class,
     SetTxTimeoutOnPartitionMapExchangeTest.class,
     DiscoveryDataDeserializationFailureHanderTest.class,
 
-    IndexingFeatureIsNotAvailableTest.class,
+    FeatureIsNotAvailableTest.class,
 
     PartitionsEvictionTaskFailureHandlerTest.class,
     DropCacheContextDuringEvictionTest.class,
@@ -241,6 +244,7 @@ import org.junit.runners.Suite;
     StopNodeOrHaltFailureHandlerTest.class,
     OomFailureHandlerTest.class,
     TransactionIntegrityWithSystemWorkerDeathTest.class,
+    FailureProcessorLoggingTest.class,
 
     AtomicOperationsInTxTest.class,
 

@@ -91,14 +91,16 @@ public enum IgniteFeatures {
     /** Support of DR events from  Web Console. */
     WC_DR_EVENTS(20),
 
-    /** Support of rolling upgrade status task for Web Console. */
-    WC_ROLLING_UPGRADE_STATUS(21),
+    /**
+     * Rolling upgrade based on distributed metastorage.
+     */
+    DISTRIBUTED_ROLLING_UPGRADE_MODE(21),
 
     /** Support of chain parameter in snapshot delete task for Web Console. */
     WC_SNAPSHOT_CHAIN_MODE(22),
 
-    /** Support of baseline auto adjustment for Web Console. */
-    WC_BASELINE_AUTO_ADJUSTMENT(23),
+    /** Support of baseline auto adjustment. */
+    BASELINE_AUTO_ADJUSTMENT(23),
 
     /** Scheduling disabled. */
     WC_SCHEDULING_NOT_AVAILABLE(24),
@@ -106,8 +108,11 @@ public enum IgniteFeatures {
     /** Support of DR-specific visor tasks used by control utility. */
     DR_CONTROL_UTILITY(25),
 
-    /** Baseline auto-adjust. */
-    BASELINE_AUTO_ADJUST(28);
+    /** */
+    TRACING(26),
+
+    /***/
+    MANAGEMENT_CONSOLE(28);
 
     /**
      * Unique feature identifier.
@@ -211,6 +216,14 @@ public enum IgniteFeatures {
 
             // Add only when indexing is enabled.
             if (INDEXING == value && !ctx.query().moduleEnabled())
+                continue;
+
+            // Add only when tracing is enabled.
+            if (TRACING == value && !IgniteComponentType.TRACING.inClassPath())
+                continue;
+
+            // Add only when management console is enabled.
+            if (MANAGEMENT_CONSOLE == value && !IgniteComponentType.MANAGEMENT_CONSOLE.inClassPath())
                 continue;
 
             final int featureId = value.getFeatureId();

@@ -242,6 +242,7 @@ import static org.apache.ignite.internal.GridKernalState.STARTING;
 import static org.apache.ignite.internal.GridKernalState.STOPPED;
 import static org.apache.ignite.internal.GridKernalState.STOPPING;
 import static org.apache.ignite.internal.IgniteComponentType.COMPRESSION;
+import static org.apache.ignite.internal.IgniteComponentType.MANAGEMENT_CONSOLE;
 import static org.apache.ignite.internal.IgniteComponentType.SCHEDULE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_DATE;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_BUILD_VER;
@@ -1147,6 +1148,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 startProcessor(createComponent(PlatformProcessor.class, ctx));
                 startProcessor(new DistributedMetaStorageImpl(ctx));
                 startProcessor(new DistributedConfigurationProcessor(ctx));
+                startProcessor(MANAGEMENT_CONSOLE.createOptional(ctx));
 
                 // Start transactional data replication processor.
                 startProcessor(createComponent(TransactionalDrProcessor.class, ctx));
@@ -1345,6 +1347,9 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                 /** Last completed task count. */
                 private long lastCompletedCntSys;
 
+                /** Last completed task count. */
+                private long lastCompletedCntQry;
+
                 @Override public void run() {
                     if (execSvc instanceof ThreadPoolExecutor) {
                         ThreadPoolExecutor exec = (ThreadPoolExecutor)execSvc;
@@ -1356,6 +1361,12 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
                         ThreadPoolExecutor exec = (ThreadPoolExecutor)sysExecSvc;
 
                         lastCompletedCntSys = checkPoolStarvation(exec, lastCompletedCntSys, "system");
+                    }
+
+                    if (qryExecSvc instanceof ThreadPoolExecutor) {
+                        ThreadPoolExecutor exec = (ThreadPoolExecutor)qryExecSvc;
+
+                        lastCompletedCntQry = checkPoolStarvation(exec, lastCompletedCntQry, "query");
                     }
 
                     if (stripedExecSvc != null)
@@ -2647,7 +2658,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
     private void ackSystemProperties() {
         assert log != null;
 
-        if (log.isDebugEnabled() && S.INCLUDE_SENSITIVE)
+        if (log.isDebugEnabled() && S.includeSensitive())
             for (Map.Entry<Object, Object> entry : snapshot().entrySet())
                 log.debug("System property [" + entry.getKey() + '=' + entry.getValue() + ']');
     }
@@ -2864,7 +2875,7 @@ public class IgniteKernal implements IgniteEx, IgniteMXBean, Externalizable {
         assert log != null;
 
         // Ack IGNITE_HOME and VM arguments.
-        if (log.isInfoEnabled() && S.INCLUDE_SENSITIVE) {
+        if (log.isInfoEnabled() && S.includeSensitive()) {
             log.info("IGNITE_HOME=" + cfg.getIgniteHome());
             log.info("VM arguments: " + rtBean.getInputArguments());
         }
