@@ -55,6 +55,8 @@ public class GridCommandHandlerRUTest extends GridCommandHandlerAbstractTest {
 
     /** {@inheritDoc} */
     @Override protected void afterTest() throws Exception {
+        super.afterTest();
+
         stopAllGrids();
     }
 
