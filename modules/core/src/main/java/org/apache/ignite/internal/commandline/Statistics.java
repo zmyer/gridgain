@@ -16,19 +16,15 @@
 package org.apache.ignite.internal.commandline;
 
 import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.client.GridClientConfiguration;
-import org.apache.ignite.internal.visor.metrics.MessageStatsTask;
-import org.apache.ignite.internal.visor.metrics.MessageStatsTaskArg;
-import org.apache.ignite.internal.visor.metrics.MessageStatsTaskResult;
-import org.apache.ignite.internal.visor.verify.CacheFilterEnum;
-import org.apache.ignite.internal.visor.verify.VisorIdleVerifyDumpTask;
-import org.apache.ignite.internal.visor.verify.VisorIdleVerifyDumpTaskArg;
+import org.apache.ignite.internal.visor.statistics.MessageStatsTask;
+import org.apache.ignite.internal.visor.statistics.MessageStatsTaskArg;
+import org.apache.ignite.internal.visor.statistics.MessageStatsTaskResult;
 
 import static java.lang.String.format;
 import static org.apache.ignite.internal.commandline.CommandList.STATISTICS;
