@@ -95,6 +95,7 @@ import static org.apache.ignite.internal.commandline.CommandList.WAL;
 import static org.apache.ignite.internal.commandline.OutputFormat.MULTI_LINE;
 import static org.apache.ignite.internal.commandline.OutputFormat.SINGLE_LINE;
 import static org.apache.ignite.internal.commandline.cache.CacheSubcommands.HELP;
+import static org.apache.ignite.internal.visor.statistics.MessageStatsTaskArg.StatisticsType.PROCESSING;
 import static org.apache.ignite.testframework.GridTestUtils.LOCAL_DATETIME_REGEXP;
 import static org.apache.ignite.testframework.GridTestUtils.assertContains;
 import static org.apache.ignite.testframework.GridTestUtils.assertMatches;
@@ -1670,7 +1671,7 @@ public class GridCommandHandlerClusterByClassTest extends GridCommandHandlerClus
                 StatisticsCommandArg.NODE.toString(),
                 crd.localNode().id().toString(),
                 StatisticsCommandArg.STATS.toString(),
-                "diagnostic.messages.GridNearSingleGetRequest"
+                PROCESSING.toString()
             );
         }
         catch (Throwable e) {

@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteException;
 import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.compute.ComputeJobResult;
@@ -41,10 +42,18 @@ import org.jetbrains.annotations.Nullable;
 import static org.apache.ignite.internal.IgniteFeatures.MESSAGE_PROFILING_AGGREGATION;
 import static org.apache.ignite.internal.IgniteFeatures.nodeSupports;
 import static org.apache.ignite.internal.IgniteNodeAttributes.ATTR_IGNITE_FEATURES;
+import static org.apache.ignite.internal.managers.communication.GridIoManager.DIAGNOSTICS_MESSAGES;
+import static org.apache.ignite.internal.managers.communication.GridIoManager.MSG_STAT_PROCESSING_TIME;
+import static org.apache.ignite.internal.managers.communication.GridIoManager.MSG_STAT_QUEUE_WAITING_TIME;
+import static org.apache.ignite.internal.processors.metric.GridMetricManager.DIAGNOSTIC_METRICS;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.SEPARATOR;
+import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.splitRegistryAndMetricName;
 import static org.apache.ignite.internal.util.lang.GridFunc.transform;
 
+/**
+ *
+ */
 @GridInternal
 public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, MessageStatsTaskResult, MessageStatsTaskResult> {
     /** */
@@ -66,87 +75,58 @@ public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, Me
 
     /** {@inheritDoc} */
     @Nullable @Override protected MessageStatsTaskResult reduce0(List<ComputeJobResult> results) throws IgniteException {
-        if (taskArg.nodeId() != null)
-            assert results.size() == 1;
+        assert taskArg.nodeId() == null || results.size() == 1;
 
         return reduceResults(results);
     }
 
     /** */
     private MessageStatsTaskResult reduceResults(List<ComputeJobResult> results) {
-        Map<String, MessageStatsTaskResult.HistogramDataHolder> reducedHistograms = new HashMap<>();
-        Map<String, Long> reducedTotalTimeMetrics = new HashMap<>();
+        Map<String, Long> timeMap = new HashMap<>();
+        Map<String, long[]> histogramsMap = new HashMap<>();
+
+        AtomicReference<long[]> bounds = null;
 
         for (ComputeJobResult result : results) {
             MessageStatsTaskResult jobResult = result.getData();
 
+            if (bounds.get() == null)
+                bounds.set(jobResult.bounds());
+
             jobResult.histograms().forEach((metricName, histogram) -> {
-                addToReducedHistogram(reducedHistograms, metricName, histogram);
+                assert histogram.length == bounds.get().length + 1;
 
-                long newVal = reducedTotalTimeMetrics.getOrDefault(metricName, 0L) + jobResult.time().get(metricName);
+                addToReducedHistogram(histogramsMap, metricName, histogram);
 
-                reducedTotalTimeMetrics.put(metricName, newVal);
+                long newVal = timeMap.getOrDefault(metricName, 0L) + jobResult.totalMetric().get(metricName);
+
+                timeMap.put(metricName, newVal);
             });
         }
 
-        return new MessageStatsTaskResult(reducedHistograms, reducedTotalTimeMetrics);
+        return new MessageStatsTaskResult(timeMap, bounds.get(), histogramsMap);
     }
 
     private void addToReducedHistogram(
-        Map<String, MessageStatsTaskResult.HistogramDataHolder> reducedMap,
+        Map<String, long[]> reducedMap,
         String name,
-        MessageStatsTaskResult.HistogramDataHolder histogram
+        long[] histogramValues
     ) {
-        MessageStatsTaskResult.HistogramDataHolder reduced = reducedMap.computeIfAbsent(
-            name,
-            k -> new MessageStatsTaskResult.HistogramDataHolder(histogram.bounds(), histogram.values())
-        );
+        long[] reduced = reducedMap.computeIfAbsent(name, k -> new long[histogramValues.length]);
 
-        for (int i = 0; i < reduced.values().length; i++) {
-            if (i >= histogram.values().length)
+        for (int i = 0; i < reduced.length; i++) {
+            if (i >= histogramValues.length)
                 //this should never happen
                 throw new IgniteException("Received different histograms from nodes, can't reduce");
 
-            reduced.values()[i] += histogram.values()[i];
+            reduced[i] += histogramValues[i];
         }
-    }
-
-    /** */
-    private long total(long[] values) {
-        long res = 0;
-
-        for (int i = 0; i < values.length; i++)
-            res += values[i];
-
-        return res;
-    }
-
-    /** */
-    private Map<String, ? super Object> histogramToMap(HistogramMetric histogram) {
-        Map<String, ? super Object> map = new HashMap<>();
-
-        long[] bounds = histogram.bounds();
-        long[] values = histogram.value();
-
-        map.put("Total", total(values));
-
-        for (int i = 0; i < bounds.length; i++)
-            map.put("<= " + bounds[i], values[i]);
-
-        map.put("> " + bounds[bounds.length - 1], values[values.length - 1]);
-
-        return map;
-    }
-
-    static MessageStatsTaskResult.HistogramDataHolder histogramHolder(HistogramMetric metric) {
-        return new MessageStatsTaskResult.HistogramDataHolder(metric);
     }
 
     /**
      *
      */
-    public static class MessageStatsJob
-        extends VisorJob<MessageStatsTaskArg, MessageStatsTaskResult> {
+    public static class MessageStatsJob extends VisorJob<MessageStatsTaskArg, MessageStatsTaskResult> {
         /** */
         private static final long serialVersionUID = 0L;
 
@@ -167,18 +147,64 @@ public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, Me
         /** {@inheritDoc} */
         @Override protected MessageStatsTaskResult run(@Nullable MessageStatsTaskArg arg)
             throws IgniteException {
-            MetricRegistry registryHistograms = ignite.context().metric().registry(arg.metrics());
+            MetricRegistry registryHistograms = histogramsRegistry(arg.statisticsType());
 
-            if (registryHistograms == null)
-                return getForMetric(arg.metrics());
-            else
-                return getForMetricGroup(arg.metrics());
+            MetricRegistry totalTimeRegistry = totalTimeRegistry(registryHistograms.name());
+
+            Map<String, Long> timeMap = new HashMap<>();
+            Map<String, long[]> histogramsMap = new HashMap<>();
+
+            AtomicReference<long[]> bounds = new AtomicReference(null);
+
+            registryHistograms.forEach(metric -> {
+                IgnitePair<String> names = splitRegistryAndMetricName(metric.name());
+
+                HistogramMetric histogram = (HistogramMetric)metric;
+
+                histogramsMap.put(names.get2(), histogram.value());
+
+                if (bounds.get() == null)
+                    bounds.set(histogram.bounds());
+
+                Metric totalTimeMetric = totalTimeRegistry.findMetric(metric.name());
+
+                if (!(totalTimeMetric instanceof LongMetric))
+                    throw new IgniteException("Total time metric was now found for '" + metric.name() + "'");
+
+                timeMap.put(names.get2(), ((LongMetric)totalTimeMetric).value());
+
+            });
+
+            return new MessageStatsTaskResult(timeMap, bounds.get(), histogramsMap);
         }
 
-        private MetricRegistry getRegistryWithCheck(String metricName, @Nullable String registryName) {
-            if (registryName == null)
-                throw new IgniteException("Could not find registry for metric: " + metricName);
+        /** */
+        private MetricRegistry histogramsRegistry(MessageStatsTaskArg.StatisticsType statsType) {
+            return getRegistryWithCheck(registryName(statsType));
+        }
 
+        /** */
+        private MetricRegistry totalTimeRegistry(String histogramsRegistryName) {
+            IgnitePair<String> names = splitRegistryAndMetricName(histogramsRegistryName);
+
+            String commonPart = names.get1();
+
+            if (commonPart == null)
+                commonPart = histogramsRegistryName;
+
+            return getRegistryWithCheck(commonPart + SEPARATOR + histoMetricToTotal(names.get1()));
+        }
+
+        private String registryName(MessageStatsTaskArg.StatisticsType statsType) {
+            switch (statsType) {
+                case PROCESSING: return metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_PROCESSING_TIME);
+                case QUEUE_WAITING: return metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_QUEUE_WAITING_TIME);
+            }
+
+            return null;
+        }
+
+        private MetricRegistry getRegistryWithCheck(@Nullable String registryName) {
             MetricRegistry registry = ignite.context().metric().registry(registryName);
 
             if (registry == null)
@@ -187,82 +213,7 @@ public class MessageStatsTask extends VisorMultiNodeTask<MessageStatsTaskArg, Me
             return registry;
         }
 
-        private <T> T getMetricWithCheck(MetricRegistry registry, String name, Class<T> cls) {
-            Metric metric = registry.findMetric(name);
-
-            if (metric == null)
-                throw new IgniteException("No such metric '" + name + "' in registry: " + registry.name());
-
-            return (T) metric;
-        }
-
-        private MessageStatsTaskResult getForMetricGroup(String groupName) {
-            MetricRegistry registry = getRegistryWithCheck(groupName, groupName);
-
-            Map<String, MessageStatsTaskResult.HistogramDataHolder> histogramMap = new HashMap<>();
-            Map<String, Long> timeMap = new HashMap<>();
-
-            IgnitePair<String> names = splitRegistryAndMetricName(groupName);
-
-            MetricRegistry totalTimeRegistry;
-
-            if (names.get1() != null) {
-                String totalTimeRegistryName = names.get1() + SEPARATOR + histoMetricToTotal(names.get2());
-
-                totalTimeRegistry = ignite.context().metric().registry(totalTimeRegistryName);
-            }
-            else
-                totalTimeRegistry = null;
-
-            registry.forEach(metric -> {
-                if (!(metric instanceof HistogramMetric))
-                    return;
-
-                HistogramMetric histogram = (HistogramMetric)metric;
-
-                histogramMap.put(histogram.name(), histogramHolder(histogram));
-
-                long totalTime = 0;
-
-                if (totalTimeRegistry != null) {
-                    Metric totalTimeMetric = totalTimeRegistry.findMetric(metric.name());
-
-                    if (totalTimeMetric != null && totalTimeMetric instanceof LongMetric)
-                        totalTime = ((LongMetric)totalTimeMetric).value();
-                }
-
-                timeMap.put(metric.name(), totalTime);
-            });
-
-            return new MessageStatsTaskResult(histogramMap, timeMap);
-        }
-
-        private MessageStatsTaskResult getForMetric(String metricName) {
-            IgnitePair<String> metricNames = splitRegistryAndMetricName(metricName);
-
-            HistogramMetric histogram =
-                getMetricWithCheck(getRegistryWithCheck(metricName, metricNames.get1()), metricNames.get2(), HistogramMetric.class);
-
-            IgnitePair<String> names = splitRegistryAndMetricName(metricNames.get1());
-
-            long totalTime = 0;
-
-            if (names.get1() != null) {
-                String totalTimeRegistryName = names.get1() + SEPARATOR + histoMetricToTotal(names.get2());
-
-                MetricRegistry totalTimeRegistry = ignite.context().metric().registry(totalTimeRegistryName);
-
-                if (totalTimeRegistry != null) {
-                    Metric totalTimeMetric = totalTimeRegistry.findMetric(metricNames.get2());
-
-                    if (totalTimeMetric != null && totalTimeMetric instanceof LongMetric)
-                        totalTime = ((LongMetric)totalTimeMetric).value();
-                }
-            }
-
-            return new MessageStatsTaskResult(metricNames.get2(), histogramHolder(histogram), totalTime);
-        }
-
+        /** */
         private String histoMetricToTotal(String histogramName) {
             return "total" + new GridStringBuilder()
                 .a(Character.toUpperCase(histogramName.charAt(0)))

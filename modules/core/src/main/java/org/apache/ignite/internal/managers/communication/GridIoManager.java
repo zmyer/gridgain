@@ -98,6 +98,7 @@ import org.apache.ignite.internal.processors.cache.mvcc.msg.MvccMessage;
 import org.apache.ignite.internal.processors.metric.DistributedMetricsConfiguration;
 import org.apache.ignite.internal.processors.metric.MetricRegistry;
 import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
+import org.apache.ignite.internal.processors.metric.impl.LongAdderMetric;
 import org.apache.ignite.internal.processors.platform.message.PlatformMessageFilter;
 import org.apache.ignite.internal.processors.pool.PoolProcessor;
 import org.apache.ignite.internal.processors.security.OperationSecurityContext;
@@ -107,7 +108,6 @@ import org.apache.ignite.internal.processors.tracing.MTC;
 import org.apache.ignite.internal.processors.tracing.MTC.TraceSurroundings;
 import org.apache.ignite.internal.processors.tracing.Span;
 import org.apache.ignite.internal.processors.tracing.SpanTags;
-import org.apache.ignite.internal.processors.tracing.Tracing;
 import org.apache.ignite.internal.util.GridBoundedConcurrentLinkedHashSet;
 import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.util.StripedCompositeReadWriteLock;
@@ -136,6 +136,8 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.CommunicationListener;
 import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
+import org.apache.ignite.spi.metric.LongMetric;
+import org.apache.ignite.spi.metric.Metric;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -161,12 +163,7 @@ import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SER
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYSTEM_POOL;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.UTILITY_CACHE_POOL;
 import static org.apache.ignite.internal.managers.communication.GridIoPolicy.isReservedGridIoPolicy;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.DIAGNOSTICS_MESSAGES;
 import static org.apache.ignite.internal.processors.metric.GridMetricManager.DIAGNOSTIC_METRICS;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_PROCESSING_TIME;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_SIZE_AFTER;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_SIZE_BEFORE;
-import static org.apache.ignite.internal.processors.metric.GridMetricManager.MSG_STAT_QUEUE_WAITING_TIME;
 import static org.apache.ignite.internal.processors.metric.impl.MetricUtils.metricName;
 import static org.apache.ignite.internal.processors.tracing.MTC.isTraceable;
 import static org.apache.ignite.internal.processors.tracing.MTC.supportSpan;
@@ -211,6 +208,28 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
     /** Direct protocol version. */
     public static final byte DIRECT_PROTO_VER = 3;
+
+    /** Metrics of diagnotics messages section. */
+    public static final String DIAGNOSTICS_MESSAGES = "messages";
+
+    /** */
+    public static final String MSG_STAT_PROCESSING_TIME = "processingTime";
+
+    /** */
+    public static final String MSG_STAT_TOTAL_PROCESSING_TIME = "totalProcessingTime";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_WAITING_TIME = "queueWaitingTime";
+
+    /** */
+    public static final String MSG_STAT_TOTAL_QUEUE_WAITING_TIME = "totalQueueWaitingTime";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_SIZE_BEFORE = "queueSizeBefore";
+
+    /** */
+    public static final String MSG_STAT_QUEUE_SIZE_AFTER = "queueSizeAfter";
+
 
     /** Current IO policy. */
     private static final ThreadLocal<Byte> CUR_PLC = new ThreadLocal<>();
@@ -321,16 +340,16 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     private final Map<String, ProcessMessageStatsClosure<Message>> handlers = new HashMap<>();
 
     /** */
-    private volatile MetricRegistry msgProcessingTimeRegistry;
+    private volatile MetricRegistry msgProcessingTimeHistogramsRegistry;
 
     /** */
-    private volatile MetricRegistry msgQueueWaitingTimeRegistry;
+    private volatile MetricRegistry msgTotalProcessingTimeRegistry;
 
     /** */
-    private final LongAdder totalProcessingTime = new LongAdder();
+    private volatile MetricRegistry msgQueueWaitingTimeHistogramsRegistry;
 
     /** */
-    private final LongAdder totalQueueWaitingTime = new LongAdder();
+    private volatile MetricRegistry msgTotalQueueWaitingTimeRegistry;
 
     /** */
     private ThreadLocal<List<ProcStat>> locSlowMsgHolder = new ThreadLocal<>();
@@ -340,6 +359,9 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
 
     /** */
     private final DistributedMetricsConfiguration metricsConfiguration;
+
+    /** */
+    private Map<String, MsgMetricBundle> msgMetrics;
 
     /**
      * @param ctx Grid kernal context.
@@ -515,8 +537,52 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
             }
         });
 
-        msgProcessingTimeRegistry = ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "processingTime"));
-        msgQueueWaitingTimeRegistry = ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, "queueWaitingTime"));
+        registerMetricsForMessages();
+    }
+
+    /** */
+    private void registerMetricsForMessages() {
+        msgProcessingTimeHistogramsRegistry =
+            ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_PROCESSING_TIME));
+        msgTotalProcessingTimeRegistry =
+            ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_TOTAL_PROCESSING_TIME));
+        msgQueueWaitingTimeHistogramsRegistry =
+            ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_QUEUE_WAITING_TIME));
+        msgTotalQueueWaitingTimeRegistry =
+            ctx.metric().registry(metricName(DIAGNOSTIC_METRICS, DIAGNOSTICS_MESSAGES, MSG_STAT_TOTAL_QUEUE_WAITING_TIME));
+
+        Map<String, MsgMetricBundle> msgMetrics = new HashMap<>();
+
+        for (Class msgType : GridIoManager.MSG_MEASURED_TYPES) {
+            String msgTypeName = msgType.getSimpleName();
+
+            MsgMetricBundle metricBundle = new MsgMetricBundle(
+                    msgProcessingTimeHistogramsRegistry.histogram(
+                    msgTypeName,
+                    MSG_HISTOGRAM_THRESHOLDS,
+                    "Histogram for message processing time on current node, for message class " + msgTypeName
+                ),
+                msgQueueWaitingTimeHistogramsRegistry.histogram(
+                    msgTypeName,
+                    MSG_HISTOGRAM_THRESHOLDS,
+                    "Histograms for how much time is spent for messages to wait in queue after receiving " +
+                        "and before processing on current node, for message class " + msgTypeName
+                ),
+                msgTotalProcessingTimeRegistry.longAdderMetric(
+                    msgTypeName,
+                    "Total time of message processing time on current node, for message class " + msgTypeName
+                ),
+                msgTotalQueueWaitingTimeRegistry.longAdderMetric(
+                    msgTypeName,
+                    "Total value of how much time is spent for messages to wait in queue after receiving " +
+                        "and before processing on current node, for message class " + msgTypeName
+                )
+            );
+
+            msgMetrics.put(msgTypeName, metricBundle);
+        }
+
+        this.msgMetrics = Collections.unmodifiableMap(msgMetrics);
     }
 
     /**
@@ -1417,26 +1483,21 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
         int queueSizeAfter) {
         Message msg0 = msg.message();
 
-        if (!MSG_MEASURED_TYPES.contains(msg0.getClass()))
+        if (!MSG_MEASURED_TYPES.contains(msg0.getClass()) || ctx.clientNode())
             return;
 
-        if (ctx.clientNode() || msgProcessingTimeRegistry == null || msgQueueWaitingTimeRegistry == null)
-            return;
-
-        HistogramMetric processingTimeMetrics =
-            getMsgHistogram(msgProcessingTimeRegistry, "processingTime", msg0.getClass());
-
-        HistogramMetric queueWaitingTimeMetrics =
-            getMsgHistogram(msgQueueWaitingTimeRegistry, "queueWaitingTime", msg0.getClass());
+        String msgTypeName = msg0.getClass().getSimpleName();
 
         long procTime = finishProc - startProc;
         long waitTime = startProc - startWait;
 
-        processingTimeMetrics.value(procTime);
-        queueWaitingTimeMetrics.value(waitTime);
+        MsgMetricBundle metricBundle = msgMetrics.get(msgTypeName);
 
-        totalProcessingTime.add(procTime);
-        totalQueueWaitingTime.add(waitTime);
+        metricBundle.processingTime.value(procTime);
+        metricBundle.queueWaitingTime.value(waitTime);
+
+        metricBundle.totalProcessingTime.add(procTime);
+        metricBundle.totalQueueWaitingTime.add(waitTime);
 
         ProcessMessageStatsClosure<Message> clo = handlers.get(msg0.getClass().getSimpleName());
 
@@ -1463,14 +1524,6 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
                 slowMsgs.add(new ProcStat(enqueueTs, waitTime, procTime, msg0, queueSizeBefore, head, queueSizeAfter, ctx));
             }
         }
-    }
-
-    public long totalProcessingTime() {
-        return totalProcessingTime.longValue();
-    }
-
-    public long totalQueueWaitingTime() {
-        return totalQueueWaitingTime.longValue();
     }
 
     /** */
@@ -3619,9 +3672,8 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     }
 
     /** */
-    private HistogramMetric getMsgHistogram(
+    private Metric getMsgMetric(
         MetricRegistry registry,
-        String metricGroup,
         Class<? extends Message> cls
     ) {
         return (HistogramMetric)
@@ -3718,6 +3770,34 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
          */
         public Object context() {
             return ctx;
+        }
+    }
+
+    /**
+     *
+     */
+    private static class MsgMetricBundle {
+        /** */
+        final HistogramMetric processingTime;
+
+        /** */
+        final HistogramMetric queueWaitingTime;
+
+        /** */
+        final LongAdderMetric totalProcessingTime;
+
+        /** */
+        final LongAdderMetric totalQueueWaitingTime;
+
+        /** */
+        public MsgMetricBundle(HistogramMetric processingTime,
+            HistogramMetric queueWaitingTime,
+            LongAdderMetric totalProcessingTime,
+            LongAdderMetric totalQueueWaitingTime) {
+            this.processingTime = processingTime;
+            this.queueWaitingTime = queueWaitingTime;
+            this.totalProcessingTime = totalProcessingTime;
+            this.totalQueueWaitingTime = totalQueueWaitingTime;
         }
     }
 }

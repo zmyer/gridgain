@@ -15,20 +15,21 @@
  */
 package org.apache.ignite.internal.commandline;
 
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.client.GridClientConfiguration;
+import org.apache.ignite.internal.commandline.argument.CommandArgUtils;
+import org.apache.ignite.internal.commandline.argument.CommandParameter;
+import org.apache.ignite.internal.commandline.argument.CommandParameterConfig;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTask;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTaskArg;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTaskResult;
 
 import static java.lang.String.format;
 import static org.apache.ignite.internal.commandline.CommandList.STATISTICS;
-import static org.apache.ignite.internal.commandline.CommandLogger.optional;
 import static org.apache.ignite.internal.commandline.StatisticsCommandArg.NODE;
 import static org.apache.ignite.internal.commandline.StatisticsCommandArg.STATS;
 import static org.apache.ignite.internal.commandline.TaskExecutor.executeTask;
@@ -38,6 +39,14 @@ import static org.apache.ignite.internal.commandline.argument.CommandArgUtils.pa
  *
  */
 public class Statistics implements Command<MessageStatsTaskArg> {
+    /** */
+    private final CommandParameterConfig<StatisticsCommandArg> STATS_PARAMS = new CommandParameterConfig<>(
+        new CommandParameter(NODE, UUID.class, true),
+        new CommandParameter(STATS, MessageStatsTaskArg.StatisticsType.class)
+    );
+
+
+    /** */
     private MessageStatsTaskArg arg;
 
     /** {@inheritDoc} */
@@ -45,7 +54,7 @@ public class Statistics implements Command<MessageStatsTaskArg> {
         try (GridClient client = Command.startClient(clientCfg)) {
             MessageStatsTaskResult res = executeTask(client, MessageStatsTask.class, arg, clientCfg);
 
-            printReport(arg.metrics(), res, logger);
+            printReport(arg.statisticsType().toString(), res, logger);
         }
 
         return null;
@@ -63,9 +72,7 @@ public class Statistics implements Command<MessageStatsTaskArg> {
 
         log.info(format(fmt1, "", "", "", taskName, "", "", "", "", "", "", "", "", "", ""));
 
-        MessageStatsTaskResult.HistogramDataHolder sampleHistogram = taskResult.histograms().values().iterator().next();
-
-        Object[] captionFmtObjects = new Object[sampleHistogram.bounds().length + 4];
+        Object[] captionFmtObjects = new Object[taskResult.bounds().length + 4];
 
         captionFmtObjects[0] = "Message";
         captionFmtObjects[1] = "Total";
@@ -74,32 +81,30 @@ public class Statistics implements Command<MessageStatsTaskArg> {
 
         final int f = 4;
 
-        for (int i = 0; i < sampleHistogram.bounds().length; i++)
-            captionFmtObjects[i + f] = "<= " + sampleHistogram.bounds()[i];
+        for (int i = 0; i < taskResult.bounds().length; i++)
+            captionFmtObjects[i + f] = "<= " + taskResult.bounds()[i];
 
         log.info(format(fmt1, captionFmtObjects));
 
-        for (Map.Entry<String, MessageStatsTaskResult.HistogramDataHolder> entry : taskResult.histograms().entrySet()) {
-            MessageStatsTaskResult.HistogramDataHolder histogram = entry.getValue();
+        taskResult.histograms().forEach((metric, values) -> {
+            Object[] objects = new Object[4 + values.length];
 
-            Object[] objects = new Object[4 + histogram.values().length];
+            Long totalCount = LongStream.of(values).sum();
 
-            Long totalCount = LongStream.of(histogram.values()).sum();
+            long totalTime = taskResult.totalMetric().getOrDefault(metric, 0L);
 
-            long totalTime = taskResult.time().getOrDefault(entry.getKey(), 0L);
-
-            objects[0] = entry.getKey();
+            objects[0] = metric;
             objects[1] = totalCount;
             objects[2] = totalTime;
             objects[3] = totalTime == 0 ? 0 : totalCount.doubleValue() / totalTime;
 
             final int n = 4;
 
-            for (int i = 0; i < histogram.values().length; i++)
-                objects[i + n] = histogram.values()[i];
+            for (int i = 0; i < values.length; i++)
+                objects[i + n] = values[i];
 
             log.info(format(fmt2, objects));
-        }
+        });
     }
 
     /** {@inheritDoc} */
@@ -109,29 +114,20 @@ public class Statistics implements Command<MessageStatsTaskArg> {
 
     /** {@inheritDoc} */
     @Override public void printUsage(Logger logger) {
-        Command.usage(logger, "Prints requested node or cluster metrics or statistics.", STATISTICS, getOptions());
-    }
-
-    /** */
-    private String[] getOptions() {
-        return new String[] {
-            STATS.toString(), "METRIC_GROUP_NAME",
-            optional(NODE, "NODE_ID")
-        };
+        Command.usage(logger, "Prints requested node or cluster metrics or statistics.", STATISTICS, STATS_PARAMS.optionsUsage());
     }
 
     /** {@inheritDoc} */
     @Override public void parseArguments(CommandArgIterator argIterator) {
-        Map<StatisticsCommandArg, Class> argTypes = new EnumMap<StatisticsCommandArg, Class>(StatisticsCommandArg.class) {{
-            put(NODE, UUID.class);
-            put(STATS, String.class);
-        }};
-
-        Map<StatisticsCommandArg, Object> parsedArgs = parseArgs(argIterator, StatisticsCommandArg.class, argTypes);
+        Map<StatisticsCommandArg, Object> parsedArgs = parseArgs(
+            argIterator,
+            StatisticsCommandArg.class,
+            STATS_PARAMS
+        );
 
         arg = new MessageStatsTaskArg(
             (UUID) parsedArgs.get(NODE),
-            (String) parsedArgs.get(STATS)
+            (MessageStatsTaskArg.StatisticsType)parsedArgs.get(STATS)
         );
     }
 

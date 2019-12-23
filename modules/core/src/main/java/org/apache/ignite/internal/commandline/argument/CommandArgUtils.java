@@ -17,8 +17,10 @@
 package org.apache.ignite.internal.commandline.argument;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
+import org.apache.ignite.IgniteException;
 import org.apache.ignite.internal.commandline.CommandArgIterator;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,11 +44,18 @@ public class CommandArgUtils {
         return null;
     }
 
+    /**
+     * @param argIter Argument iterator.
+     * @param argsCls Args class.
+     * @param parameters Parameters.
+     */
     public static <E extends Enum<E> & CommandArg> Map<E, Object> parseArgs(
         CommandArgIterator argIter,
-        Class<E> argsClass,
-        Map<E, Class> argumentTypesMap
+        Class<E> argsCls,
+        CommandParameterConfig<E> parameters
     ) {
+        Set<CommandParameter<E>> neededObligatoryParams = new HashSet<>(parameters.obligatoryParameters());
+
         Map<E, Object> res = new HashMap<>();
 
         while (true) {
@@ -55,44 +64,54 @@ public class CommandArgUtils {
             if (str == null)
                 break;
 
-            E arg = of(str, argsClass);
+            E arg = of(str, argsCls);
 
-            if (arg == null) {
-                if (argIter.hasNextArg())
-                    continue;
-                else
-                    break;
-            }
+            if (arg == null)
+                throw new IgniteException("Unexpected parameter: " + arg);
 
-            Class argClass = argumentTypesMap.get(arg);
+            CommandParameter<E> param = parameters.parametersMap().get(arg);
 
-            if (argClass == null)
-                argClass = String.class;
+            assert param != null;
 
             argIter.nextArg("");
 
-            switch (argClass.getSimpleName()) {
-                case "String":
-                    res.put(arg, argIter.nextArg(arg.argName()));
+            if (param.valueType() == null)
+                res.put(arg, null);
+            else {
+                switch (param.valueType().getSimpleName()) {
+                    case "String":
+                        res.put(arg, argIter.nextArg(arg.argName()));
 
-                    break;
+                        break;
 
-                case "UUID":
-                    res.put(arg, UUID.fromString(argIter.nextArg(arg.argName())));
+                    case "UUID":
+                        res.put(arg, argIter.nextUUIDArg(arg.argName()));
 
-                    break;
+                        break;
 
-                case "Long":
-                    res.put(arg, argIter.nextLongArg(arg.argName()));
+                    case "Long":
+                        res.put(arg, argIter.nextLongArg(arg.argName()));
 
-                    break;
+                        break;
 
-                case "Set":
-                    res.put(arg, argIter.nextStringSet(arg.argName()));
+                    case "Set":
+                        res.put(arg, argIter.nextStringSet(arg.argName()));
 
-                    break;
+                        break;
+
+                    default:
+                        if (param.valueType().isEnum())
+                            res.put(arg, of(argIter.nextArg(arg.argName()), param.valueType()));
+                }
+
             }
+
+
+            neededObligatoryParams.remove(param);
         }
+
+        if (neededObligatoryParams.size() > 0)
+            throw new IgniteException("Missing obligatory parameters: " + neededObligatoryParams);
 
         return res;
     }

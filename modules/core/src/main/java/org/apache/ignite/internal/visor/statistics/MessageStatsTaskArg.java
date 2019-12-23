@@ -19,14 +19,15 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.util.UUID;
+import org.apache.ignite.internal.commandline.argument.CommandArg;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorDataTransferObject;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ *
+ */
 public class MessageStatsTaskArg extends VisorDataTransferObject {
-    public enum MetricType {
-
-    }
-
     /** */
     private static final long serialVersionUID = 0L;
 
@@ -34,35 +35,68 @@ public class MessageStatsTaskArg extends VisorDataTransferObject {
     private UUID nodeId;
 
     /** */
-    private String metrics;
+    private StatisticsType statisticsType;
 
     /** */
     public MessageStatsTaskArg() {
     }
 
     /** */
-    public MessageStatsTaskArg(UUID nodeId, String metrics) {
+    public MessageStatsTaskArg(UUID nodeId, StatisticsType statisticsType) {
         this.nodeId = nodeId;
-        this.metrics = metrics;
+        this.statisticsType = statisticsType;
     }
 
+    /** */
     public UUID nodeId() {
         return nodeId;
     }
 
-    public String metrics() {
-        return metrics;
+    /** */
+    public StatisticsType statisticsType() {
+        return statisticsType;
     }
 
     /** {@inheritDoc} */
     @Override protected void writeExternalData(ObjectOutput out) throws IOException {
         U.writeUuid(out, nodeId);
-        U.writeString(out, metrics);
+        U.writeEnum(out, statisticsType);
     }
 
     /** {@inheritDoc} */
     @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
         nodeId = U.readUuid(in);
-        metrics = U.readString(in);
+        statisticsType = StatisticsType.fromOrdinal(in.readByte());
     }
+
+    /**
+     *
+     */
+    public enum StatisticsType implements CommandArg {
+        /** */
+        PROCESSING("proc"),
+
+        /** */
+        QUEUE_WAITING("qw");
+
+        private final String name;
+
+        /** Enumerated values. */
+        private static final StatisticsType[] VALS = values();
+
+        StatisticsType(String name) {
+            this.name = name;
+        }
+
+        @Override public String toString() {
+            return name;
+        }
+
+        @Nullable public static StatisticsType fromOrdinal(int ord) {
+            return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
+        }
+
+        @Override public String argName() {
+            return name;
+        }}
 }

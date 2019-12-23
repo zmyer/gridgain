@@ -18,76 +18,81 @@ package org.apache.ignite.internal.visor.statistics;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.HashMap;
 import java.util.Map;
-import org.apache.ignite.internal.processors.metric.impl.HistogramMetric;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.internal.visor.VisorDataTransferObject;
 
+/**
+ *
+ */
 public class MessageStatsTaskResult extends VisorDataTransferObject {
     /** */
     private static final long serialVersionUID = 0L;
 
-    private Map<String, HistogramDataHolder> histograms;
+    /** */
+    private Map<String, Long> totalMetric;
 
-    private Map<String, Long> time;
+    /** */
+    private long[] bounds;
 
+    /** */
+    private Map<String, long[]> histograms;
+
+    /** */
     public MessageStatsTaskResult() {
 
     }
 
-    public MessageStatsTaskResult(String name, HistogramDataHolder histogram, Long time) {
-        this(
-            new HashMap<String, HistogramDataHolder>() {{ put(name, histogram); }},
-            new HashMap<String, Long>() {{ put(name, time); }}
-        );
-    }
+    /** */
+    public MessageStatsTaskResult(Map<String, Long> totalMetric, long[] bounds, Map<String, long[]> histograms) {
+        assert totalMetric != null;
+        assert bounds != null;
+        assert histograms != null;
+        assert totalMetric.size() == histograms.size();
 
-    public MessageStatsTaskResult(Map<String, HistogramDataHolder> histograms, Map<String, Long> time) {
+        histograms.values().forEach(v -> { assert v.length == bounds.length + 1; });
+        histograms.keySet().forEach(k -> { assert totalMetric.keySet().contains(k); });
+
+        this.totalMetric = totalMetric;
+        this.bounds = bounds;
         this.histograms = histograms;
-        this.time = time;
     }
 
-    public Map<String, HistogramDataHolder> histograms() {
+    /** */
+    private void validate() {
+
+    }
+
+    /** */
+    public Map <String, Long> totalMetric() {
+        return totalMetric;
+    }
+
+    /** */
+    public long[] bounds() {
+        return bounds;
+    }
+
+    /** */
+    public Map<String, long[]> histograms() {
         return histograms;
-    }
-
-    public Map<String, Long> time() {
-        return time;
     }
 
     /** {@inheritDoc} */
     @Override protected void writeExternalData(ObjectOutput out) throws IOException {
+        U.writeMap(out, totalMetric);
+
+        U.writeLongArray(out, bounds);
+
         U.writeMap(out, histograms);
-        U.writeMap(out, time);
     }
 
     /** {@inheritDoc} */
     @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
+        totalMetric = U.readMap(in);
+
+        bounds = U.readLongArray(in);
+
         histograms = U.readMap(in);
-        time = U.readMap(in);
-    }
-
-    public static class HistogramDataHolder {
-        private final long[] bounds;
-
-        private final long[] values;
-
-        public HistogramDataHolder(HistogramMetric histogram) {
-            this(histogram.bounds(), histogram.value());
-        }
-
-        public HistogramDataHolder(long[] bounds, long[] values) {
-            this.bounds = bounds;
-            this.values = values;
-        }
-
-        public long[] bounds() {
-            return bounds;
-        }
-
-        public long[] values() {
-            return values;
-        }
     }
 }
