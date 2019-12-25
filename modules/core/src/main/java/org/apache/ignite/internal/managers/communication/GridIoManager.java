@@ -136,7 +136,6 @@ import org.apache.ignite.spi.IgniteSpiException;
 import org.apache.ignite.spi.communication.CommunicationListener;
 import org.apache.ignite.spi.communication.CommunicationSpi;
 import org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi;
-import org.apache.ignite.spi.metric.LongMetric;
 import org.apache.ignite.spi.metric.Metric;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -216,13 +215,13 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     public static final String MSG_STAT_PROCESSING_TIME = "processingTime";
 
     /** */
-    public static final String MSG_STAT_TOTAL_PROCESSING_TIME = "totalProcessingTime";
+    public static final String MSG_STAT_TOTAL_PROCESSING_TIME = monotonicRegistryName(MSG_STAT_PROCESSING_TIME);
 
     /** */
     public static final String MSG_STAT_QUEUE_WAITING_TIME = "queueWaitingTime";
 
     /** */
-    public static final String MSG_STAT_TOTAL_QUEUE_WAITING_TIME = "totalQueueWaitingTime";
+    public static final String MSG_STAT_TOTAL_QUEUE_WAITING_TIME = monotonicRegistryName(MSG_STAT_QUEUE_WAITING_TIME);
 
     /** */
     public static final String MSG_STAT_QUEUE_SIZE_BEFORE = "queueSizeBefore";
@@ -3678,6 +3677,13 @@ public class GridIoManager extends GridManagerAdapter<CommunicationSpi<Serializa
     ) {
         return (HistogramMetric)
             registry.findMetric(cls.getSimpleName());
+    }
+
+    public static String monotonicRegistryName(String histogramRegistryName) {
+        return "total" + new GridStringBuilder()
+            .a(Character.toUpperCase(histogramRegistryName.charAt(0)))
+            .a(histogramRegistryName.substring(1))
+            .toString();
     }
 
     /** */

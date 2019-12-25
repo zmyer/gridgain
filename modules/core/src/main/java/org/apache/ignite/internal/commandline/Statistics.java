@@ -21,9 +21,9 @@ import java.util.logging.Logger;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.client.GridClient;
 import org.apache.ignite.internal.client.GridClientConfiguration;
-import org.apache.ignite.internal.commandline.argument.CommandArgUtils;
 import org.apache.ignite.internal.commandline.argument.CommandParameter;
 import org.apache.ignite.internal.commandline.argument.CommandParameterConfig;
+import org.apache.ignite.internal.util.GridStringBuilder;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTask;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTaskArg;
 import org.apache.ignite.internal.visor.statistics.MessageStatsTaskResult;
@@ -40,10 +40,18 @@ import static org.apache.ignite.internal.commandline.argument.CommandArgUtils.pa
  */
 public class Statistics implements Command<MessageStatsTaskArg> {
     /** */
-    private final CommandParameterConfig<StatisticsCommandArg> STATS_PARAMS = new CommandParameterConfig<>(
+    private static final CommandParameterConfig<StatisticsCommandArg> STATS_PARAMS = new CommandParameterConfig<>(
         new CommandParameter(NODE, UUID.class, true),
         new CommandParameter(STATS, MessageStatsTaskArg.StatisticsType.class)
     );
+
+    /** */
+    private static final String[] REPORT_LEADING_COLUMNS = new String[] {
+        "Message",
+        "Total",
+        "Total time (ms)",
+        "Avg (ms)"
+    };
 
 
     /** */
@@ -67,44 +75,60 @@ public class Statistics implements Command<MessageStatsTaskArg> {
             return;
         }
 
-        String fmt1 = "%40s%12s%16s%14s%10s%10s%10s%10s%10s%10s%10s%10s%10s\n";
-        String fmt2 = "%40s%12d%16f%14s%10s%10s%10s%10s%10s%10s%10s%10s%10s\n";
+        String fmt = formatTable(taskResult.bounds().length + 1, false);
 
-        log.info(format(fmt1, "", "", "", taskName, "", "", "", "", "", "", "", "", "", ""));
+        Object[] captionFmtObjects = new Object[taskResult.bounds().length + REPORT_LEADING_COLUMNS.length + 1];
 
-        Object[] captionFmtObjects = new Object[taskResult.bounds().length + 4];
-
-        captionFmtObjects[0] = "Message";
-        captionFmtObjects[1] = "Total";
-        captionFmtObjects[2] = "Total time(ms)";
-        captionFmtObjects[3] = "Average(ms)";
-
-        final int f = 4;
+        for (int i = 0; i < REPORT_LEADING_COLUMNS.length; i++)
+            captionFmtObjects[i] = REPORT_LEADING_COLUMNS[i];
 
         for (int i = 0; i < taskResult.bounds().length; i++)
-            captionFmtObjects[i + f] = "<= " + taskResult.bounds()[i];
+            captionFmtObjects[i + REPORT_LEADING_COLUMNS.length] = "<= " + taskResult.bounds()[i];
 
-        log.info(format(fmt1, captionFmtObjects));
+        captionFmtObjects[captionFmtObjects.length - 1] = "> " + taskResult.bounds()[taskResult.bounds().length - 1];
+
+        GridStringBuilder report = new GridStringBuilder("Statistics report [" + taskName + "]:\n").
+            a(format(formatTable(taskResult.bounds().length + 1, true), captionFmtObjects));
 
         taskResult.histograms().forEach((metric, values) -> {
-            Object[] objects = new Object[4 + values.length];
+            Object[] objects = new Object[values.length + REPORT_LEADING_COLUMNS.length];
 
             Long totalCount = LongStream.of(values).sum();
 
-            long totalTime = taskResult.totalMetric().getOrDefault(metric, 0L);
+            long totalTime = taskResult.monotonicMetric().getOrDefault(metric, 0L);
 
             objects[0] = metric;
             objects[1] = totalCount;
             objects[2] = totalTime;
             objects[3] = totalTime == 0 ? 0 : totalCount.doubleValue() / totalTime;
 
-            final int n = 4;
-
             for (int i = 0; i < values.length; i++)
-                objects[i + n] = values[i];
+                objects[i + REPORT_LEADING_COLUMNS.length] = values[i];
 
-            log.info(format(fmt2, objects));
+            report.a(format(fmt, objects));
         });
+
+        log.info(report.toString());
+    }
+
+    /** */
+    private String formatTable(int histogramSize, boolean caption) {
+        GridStringBuilder sb = new GridStringBuilder("%40s");
+
+        for (int i = 1; i < REPORT_LEADING_COLUMNS.length - 1; i++)
+            sb.a("%15s");
+
+        if (caption)
+            sb.a("%18s");
+        else
+            sb.a("%15.3f");
+
+        for (int i = 0; i < histogramSize; i++)
+            sb.a("%10s");
+
+        sb.a("\n");
+
+        return sb.toString();
     }
 
     /** {@inheritDoc} */

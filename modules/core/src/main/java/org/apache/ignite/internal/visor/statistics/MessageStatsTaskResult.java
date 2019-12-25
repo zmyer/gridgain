@@ -30,7 +30,7 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
     private static final long serialVersionUID = 0L;
 
     /** */
-    private Map<String, Long> totalMetric;
+    private Map<String, Long> monotonicMetric;
 
     /** */
     private long[] bounds;
@@ -44,28 +44,23 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
     }
 
     /** */
-    public MessageStatsTaskResult(Map<String, Long> totalMetric, long[] bounds, Map<String, long[]> histograms) {
-        assert totalMetric != null;
+    public MessageStatsTaskResult(Map<String, Long> monotonicMetric, long[] bounds, Map<String, long[]> histograms) {
+        assert monotonicMetric != null;
         assert bounds != null;
         assert histograms != null;
-        assert totalMetric.size() == histograms.size();
+        assert monotonicMetric.size() == histograms.size();
 
         histograms.values().forEach(v -> { assert v.length == bounds.length + 1; });
-        histograms.keySet().forEach(k -> { assert totalMetric.keySet().contains(k); });
+        histograms.keySet().forEach(k -> { assert monotonicMetric.keySet().contains(k); });
 
-        this.totalMetric = totalMetric;
+        this.monotonicMetric = monotonicMetric;
         this.bounds = bounds;
         this.histograms = histograms;
     }
 
     /** */
-    private void validate() {
-
-    }
-
-    /** */
-    public Map <String, Long> totalMetric() {
-        return totalMetric;
+    public Map <String, Long> monotonicMetric() {
+        return monotonicMetric;
     }
 
     /** */
@@ -80,7 +75,7 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
 
     /** {@inheritDoc} */
     @Override protected void writeExternalData(ObjectOutput out) throws IOException {
-        U.writeMap(out, totalMetric);
+        U.writeMap(out, monotonicMetric);
 
         U.writeLongArray(out, bounds);
 
@@ -89,7 +84,7 @@ public class MessageStatsTaskResult extends VisorDataTransferObject {
 
     /** {@inheritDoc} */
     @Override protected void readExternalData(byte protoVer, ObjectInput in) throws IOException, ClassNotFoundException {
-        totalMetric = U.readMap(in);
+        monotonicMetric = U.readMap(in);
 
         bounds = U.readLongArray(in);
 
