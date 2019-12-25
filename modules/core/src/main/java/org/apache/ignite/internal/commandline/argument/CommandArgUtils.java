@@ -44,6 +44,15 @@ public class CommandArgUtils {
         return null;
     }
 
+    public static <E extends Enum> @Nullable E ofString(String text, Class<E> enumClass) {
+        for (E e : enumClass.getEnumConstants()) {
+            if (e.toString().equalsIgnoreCase(text))
+                return e;
+        }
+
+        return null;
+    }
+
     /**
      * @param argIter Argument iterator.
      * @param argsCls Args class.
@@ -101,11 +110,10 @@ public class CommandArgUtils {
 
                     default:
                         if (param.valueType().isEnum())
-                            res.put(arg, of(argIter.nextArg(arg.argName()), param.valueType()));
+                            res.put(arg, ofString(argIter.nextArg(arg.argName()), param.valueType()));
                 }
 
             }
-
 
             neededObligatoryParams.remove(param);
         }

@@ -72,12 +72,12 @@ public class MessageStatsTaskArg extends VisorDataTransferObject {
     /**
      *
      */
-    public enum StatisticsType implements CommandArg {
+    public enum StatisticsType {
         /** */
-        PROCESSING("proc"),
+        PROCESSING("processing"),
 
         /** */
-        QUEUE_WAITING("qw");
+        QUEUE_WAITING("waiting");
 
         private final String name;
 
@@ -95,8 +95,5 @@ public class MessageStatsTaskArg extends VisorDataTransferObject {
         @Nullable public static StatisticsType fromOrdinal(int ord) {
             return ord >= 0 && ord < VALS.length ? VALS[ord] : null;
         }
-
-        @Override public String argName() {
-            return name;
-        }}
+    }
 }
