@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.IgniteCompute;
 import org.apache.ignite.cluster.ClusterNode;
+import org.apache.ignite.internal.util.typedef.internal.S;
 import org.apache.ignite.internal.visor.VisorTaskArgument;
 import org.apache.ignite.internal.visor.tx.VisorTxInfo;
 import org.apache.ignite.internal.visor.tx.VisorTxOperation;
@@ -167,6 +168,21 @@ public class TransactionsMXBeanImpl implements TransactionsMXBean {
     /** {@inheritDoc} */
     @Override public void setTransactionTimeDumpSamplesPerSecondLimit(int limit) {
         ctx.cache().context().tm().longTransactionTimeDumpSamplesPerSecondLimit(limit);
+    }
+
+    /** {@inheritDoc} */
+    @Override public void setLongOperationsDumpTimeout(long timeout) {
+        ctx.cache().context().tm().longOperationsDumpTimeoutDistributed(timeout);
+    }
+
+    /** {@inheritDoc} */
+    @Override public long getLongOperationsDumpTimeout() {
+        return ctx.cache().context().tm().longOperationsDumpTimeout();
+    }
+
+    /** {@inheritDoc} */
+    @Override public String toString() {
+        return S.toString(TransactionsMXBeanImpl.class, this);
     }
 }
 
