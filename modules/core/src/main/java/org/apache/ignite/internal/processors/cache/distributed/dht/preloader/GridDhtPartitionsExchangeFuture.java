@@ -907,6 +907,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             timeBag.finishGlobalStage("Determine exchange type");
 
+            if (log.isInfoEnabled())
+                log.info("Exchange type determined: " + exchange.name());
+
             switch (exchange) {
                 case ALL: {
                     distributedExchange();
@@ -1388,6 +1391,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         if (crd != null) {
             assert !crd.isLocal() : crd;
 
+            log.info("clientOnlyExchange started: " + initialVersion() + " crdNode: " + crd);
+
             cctx.exchange().exchangerBlockingSectionBegin();
 
             try {
@@ -1401,6 +1406,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             }
         }
         else {
+            log.info("clientOnly exchange started: " + initialVersion() + " crd node is null");
+
             if (centralizedAff) { // Last server node failed.
                 for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
                     GridAffinityAssignmentCache aff = grp.affinity();
@@ -3997,6 +4004,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         assert !cctx.kernalContext().clientNode() || msg.restoreState();
         assert !node.isDaemon() && !node.isClient() : node;
 
+        if (msg.restoreState())
+            log.info("Restore state message will be processed when init is finished: " + initialVersion());
+
         initFut.listen(new CI1<IgniteInternalFuture<Boolean>>() {
             @Override public void apply(IgniteInternalFuture<Boolean> fut) {
                 processSinglePartitionRequest(node, msg);
@@ -4551,6 +4561,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
     private void onAllServersLeft() {
         assert cctx.kernalContext().clientNode() : cctx.localNode();
 
+        log.info("onAllServersLeft");
+
         List<ClusterNode> empty = Collections.emptyList();
 
         for (CacheGroupContext grp : cctx.cache().cacheGroups()) {
@@ -4597,8 +4609,11 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                             newCrdFut0 = newCrdFut;
                         }
 
-                        if (newCrdFut0 != null)
+                        if (newCrdFut0 != null) {
+                            log.info("NewCoordinator on node left on exchange " + initialVersion() + " leftNode id " + node.id());
+
                             newCrdFut0.onNodeLeft(node.id());
+                        }
 
                         synchronized (mux) {
                             srvNodes.remove(node);
@@ -4688,6 +4703,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
                                         newCrdFut.listen(new CI1<IgniteInternalFuture>() {
                                             @Override public void apply(IgniteInternalFuture fut) {
+                                                log.info("InitNewCoordinatorFuture is done; isDone: " + isDone());
+
                                                 if (isDone())
                                                     return;
 
@@ -4786,6 +4803,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         boolean allRcvd = false;
 
         cctx.exchange().onCoordinatorInitialized();
+
+        if (log.isInfoEnabled())
+            log.info("New node becomes coordinator: " + initialVersion() + " restoreState: " + newCrdFut.restoreState());
 
         if (newCrdFut.restoreState()) {
             GridDhtPartitionsFullMessage fullMsg = newCrdFut.fullMessage();

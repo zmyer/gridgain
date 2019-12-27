@@ -161,7 +161,8 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
             }
 
             if (log.isInfoEnabled()) {
-                log.info("Try restore exchange result [awaited=" + awaited +
+                log.info("Try restore exchange result [initialVersion=" + initTopVer +
+                    ", awaited=" + awaited +
                     ", joined=" + joinedNodes.keySet() +
                     ", nodes=" + U.nodeIds(nodes) +
                     ", discoAllNodes=" + U.nodeIds(discoCache.allNodes()) + ']');
@@ -180,6 +181,8 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
                                 joinedNodes.get(node.id()),
                                 exchFut.exchangeId());
                         }
+
+                        log.info("Sending restore exchange request to node with id: " + node.id());
 
                         cctx.io().send(node, sndReq, GridIoPolicy.SYSTEM_POOL);
                     }
@@ -274,8 +277,12 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
                 onAllReceived();
         }
 
-        if (done)
+        if (done) {
+            if (log.isInfoEnabled())
+                log.info("Restore state is finished, resTopVer " + resTopVer);
+
             restoreStateFut.onDone();
+        }
     }
 
     /**
@@ -320,6 +327,7 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
                 Map.Entry<ClusterNode, GridDhtPartitionsSingleMessage> e = it.next();
 
                 GridDhtPartitionExchangeId msgVer = joinedNodes.get(e.getKey().id());
+                ClusterNode node = e.getKey();
 
                 if (msgVer != null) {
                     it.remove();
@@ -328,7 +336,7 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
 
                     if (log.isInfoEnabled()) {
                         log.info("Process joined node message [initTopVer=" + initTopVer +
-                            ", msgVer=" + msgVer.topologyVersion() + ']');
+                            ", msgVer=" + msgVer.topologyVersion() + ", node=" + node + ']');
                     }
 
                     if (joinExchMsgs == null)
@@ -367,8 +375,12 @@ public class InitNewCoordinatorFuture extends GridCompoundFuture implements Igni
                 onAllReceived();
         }
 
-        if (done)
+        if (done) {
+            if (log.isInfoEnabled())
+                log.info("Restore state is finished, resTopVer " + resTopVer);
+
             restoreStateFut.onDone();
+        }
     }
 
     /** {@inheritDoc} */

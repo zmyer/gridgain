@@ -392,8 +392,12 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
                 @Override public void onMessage(final ClusterNode node, final GridDhtPartitionsSingleMessage msg) {
                     GridDhtPartitionExchangeId exchangeId = msg.exchangeId();
 
+                    log.info("GridDhtPartitionsSingleMessage received with exchangeId " + exchangeId);
+
                     if (exchangeId != null) {
                         GridDhtPartitionsExchangeFuture fut = exchangeFuture(exchangeId);
+
+                        log.info("ExchangeFuture: " + fut);
 
                         boolean fastReplied = fut.fastReplyOnSingleMessage(node, msg);
 
@@ -404,6 +408,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                             return;
                         }
+                        else
+                            log.info("fastReplied: false");
                     }
                     else if (exchangeInProgress()) {
                         if (log.isInfoEnabled())
@@ -442,7 +448,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
 
                         if (currentExchange != null && currentExchange.addOrMergeDelayedFullMessage(node, msg)) {
                             if (log.isInfoEnabled())
-                                log.info("Delay process full message without exchange id (there is exchange in progress) [nodeId=" + node.id() + "]");
+                                log.info("Delay process full message without exchange id " +
+                                    "(there is exchange in progress) [nodeId=" + node.id() + ", currentExchangeAffVer=" +
+                                    currentExchange.topologyVersion() + ", messageAffVer" + msg.topologyVersion() + "]");
 
                             return;
                         }
