@@ -1931,6 +1931,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         }
 
         if (cctx.kernalContext().clientNode() || (dynamicCacheStartExchange() && exchangeLocE != null)) {
+            log.info("Sending GridDhtPartitionsSingleMessage with exchangeId0: " + exchangeId());
+
             msg = new GridDhtPartitionsSingleMessage(exchangeId(),
                 cctx.kernalContext().clientNode(),
                 cctx.versions().last(),
@@ -2080,6 +2082,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 GridDhtPartitionsFullMessage fullMsgToSend = nodeAndMsg.get2();
 
                 try {
+                    if (node.isClient())
+                        log.info("Sending fullMessage to node " + node.id() + " msg topology version: " + fullMsgToSend.topologyVersion());
+
                     cctx.io().send(node, fullMsgToSend, SYSTEM_POOL);
                 }
                 catch (ClusterTopologyCheckedException e) {
@@ -2877,8 +2882,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      * @param msg Client's message.
      */
     public void waitAndReplyToNode(final UUID nodeId, final GridDhtPartitionsSingleMessage msg) {
-        if (log.isDebugEnabled())
-            log.debug("Single message will be handled on completion of exchange future: " + this);
+        log.info("Single message will be handled to node " + nodeId + " on completion of exchange future: " + this);
 
         listen(new CI1<IgniteInternalFuture<AffinityTopologyVersion>>() {
             @Override public void apply(IgniteInternalFuture<AffinityTopologyVersion> fut) {
@@ -4005,7 +4009,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
         assert !node.isDaemon() && !node.isClient() : node;
 
         if (msg.restoreState())
-            log.info("Restore state message will be processed when init is finished: " + initialVersion());
+            log.info("Restore state message will be processed when initFut is finished: " + initFut.isDone());
 
         initFut.listen(new CI1<IgniteInternalFuture<Boolean>>() {
             @Override public void apply(IgniteInternalFuture<Boolean> fut) {
@@ -4098,6 +4102,9 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 GridDhtPartitionsSingleMessage res;
 
                 if (dynamicCacheStartExchange() && exchangeLocE != null) {
+                    if (cctx.kernalContext().clientNode())
+                        log.info("Sending GridDhtPartitionsSingleMessage with exchangeId1: " + msg.restoreExchangeId());
+
                     res = new GridDhtPartitionsSingleMessage(msg.restoreExchangeId(),
                         cctx.kernalContext().clientNode(),
                         cctx.versions().last(),
@@ -4900,6 +4907,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             allRcvd = true;
 
             synchronized (mux) {
+                log.info("Clearing remaining nodes: " + remaining + " pending single messages: " + pendingSingleMsgs.size());
+
                 remaining.clear(); // Do not process messages.
 
                 assert crd != null && crd.isLocal();

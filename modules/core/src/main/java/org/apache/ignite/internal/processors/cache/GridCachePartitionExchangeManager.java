@@ -528,6 +528,8 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
      *
      */
     public void onCoordinatorInitialized() {
+        log.info("Coordinator initialized");
+
         crdInitFut.onDone();
     }
 
@@ -1636,6 +1638,9 @@ public class GridCachePartitionExchangeManager<K, V> extends GridCacheSharedMana
         ExchangeActions exchActions,
         Collection<CacheGroupContext> grps
     ) {
+        if (clientOnlyExchange)
+            log.info("Sending GridDhtPartitionsSingleMessage with exchangeId2: "+ exchangeId);
+
         GridDhtPartitionsSingleMessage m = new GridDhtPartitionsSingleMessage(exchangeId,
             clientOnlyExchange,
             cctx.versions().last(),
