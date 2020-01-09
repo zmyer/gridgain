@@ -50,6 +50,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_DISCOVERY_HISTORY_SIZE;
+import static org.apache.ignite.internal.SupportFeaturesUtils.IGNITE_DISTRIBUTED_META_STORAGE_FEATURE;
 
 /**
  * Test {@link ExchangeLatchManager} throws {@link IgniteException} with appropriate message when topology history
@@ -137,6 +138,7 @@ public class IgniteExchangeLatchManagerDiscoHistoryTest extends GridCommonAbstra
      */
     @Test
     @WithSystemProperty(key = IGNITE_DISCOVERY_HISTORY_SIZE, value = DISCO_HISTORY_SIZE)
+    @WithSystemProperty(key = IGNITE_DISTRIBUTED_META_STORAGE_FEATURE, value = "true")
     public void testProperException() throws Exception {
         final IgniteEx crd = startGrid(0);
 
@@ -173,6 +175,8 @@ public class IgniteExchangeLatchManagerDiscoHistoryTest extends GridCommonAbstra
                                             catch (Exception e) {
                                                 err.compareAndSet(null, e);
                                             }
+
+                                            int i = 0;
                                         }
                                 });
                             }
