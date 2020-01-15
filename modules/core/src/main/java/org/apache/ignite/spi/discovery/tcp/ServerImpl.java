@@ -2359,6 +2359,16 @@ class ServerImpl extends TcpDiscoveryImpl {
     }
 
     /**
+     * @param msg Message for checking.
+     * @param nodeId Expected node id.
+     * @return {@code true} If given message is {@link TcpDiscoveryNodeAddedMessage} for given node id.
+     */
+    private static boolean isAddMessageForNode(TcpDiscoveryAbstractMessage msg, UUID nodeId) {
+        return msg instanceof TcpDiscoveryNodeAddedMessage &&
+            ((TcpDiscoveryNodeAddedMessage)msg).node().id().equals(nodeId);
+    }
+
+    /**
      * Discovery messages history used for client reconnect.
      */
     private class EnsuredMessageHistory {
@@ -3067,11 +3077,8 @@ class ServerImpl extends TcpDiscoveryImpl {
             notifiedDiscovery.set(false);
 
             // TODO: https://ggsystems.atlassian.net/browse/GG-22502
-            if (msg instanceof TraceableMessage) {
-                TraceableMessage tMsg = (TraceableMessage) msg;
-
-                tracing.messages().afterReceive(tMsg);
-            }
+            if (msg instanceof TraceableMessage)
+                tracing.messages().afterReceive((TraceableMessage) msg);
 
             spi.startMessageProcess(msg);
 
@@ -3084,10 +3091,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                             "ignoring message [msg=" + msg + ", locNode=" + locNode + ']');
 
                     if (msg instanceof TraceableMessage)
-                        ((TraceableMessage) msg).spanContainer().span()
-                            .addLog("Ring failed")
-                            .setStatus(SpanStatus.ABORTED)
-                            .end();
+                        ((TraceableMessage) msg).spanContainer().span().abort("Ring failed");
 
                     return;
                 }
@@ -3106,33 +3110,22 @@ class ServerImpl extends TcpDiscoveryImpl {
             if (!locNode.id().equals(msg.senderNodeId()) && ensured)
                 lastRingMsgTimeNanos = System.nanoTime();
 
-            if (locNode.internalOrder() == 0) {
-                boolean proc = false;
+            if (locNode.internalOrder() == 0 && !isAddMessageForNode(msg, locNode.id())) {
+                // Local node hasn't received its own NodeAddedMessage so it just keeps all preceding messages to pending.
+                // These messages wouldn't be handled locally
+                // because they started its way before this node officially join to cluster
+                // so they will be just sent to the next node as soon as this node received its own NodeAddedMessage.
+                registerPendingMessage(msg);
 
-                if (msg instanceof TcpDiscoveryNodeAddedMessage)
-                    proc = ((TcpDiscoveryNodeAddedMessage)msg).node().equals(locNode);
-
-                if (!proc) {
-                    //Local node hasn't received its own NodeAddedMessage
-                    // so it just keeps all preceding messages to pending.
-                    // These messages wouldn't be handled locally
-                    // because they started its way before this node officially join to cluster
-                    // so they will be just sent to the next node as soon as this node received its own NodeAddedMessage.
-                    registerPendingMessage(msg);
-
-                    if (log.isDebugEnabled()) {
-                        log.debug("Ignore message, local node order is not initialized [msg=" + msg +
-                            ", locNode=" + locNode + ']');
-                    }
-
-                    if (msg instanceof TraceableMessage)
-                        ((TraceableMessage) msg).spanContainer().span()
-                            .addLog("Local node order not initialized")
-                            .setStatus(SpanStatus.ABORTED)
-                            .end();
-
-                    return;
+                if (log.isDebugEnabled()) {
+                    log.debug("Adding message to pending without processing, " +
+                        "local node order is not initialized [msg=" + msg + ", locNode=" + locNode + ']');
                 }
+
+                if (msg instanceof TraceableMessage)
+                    ((TraceableMessage)msg).spanContainer().span().abort("Local node order not initialized");
+
+                return;
             }
 
             spi.stats.onMessageProcessingStarted(msg);
@@ -3501,13 +3494,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                                     // ID is as expected. Check node order.
                                     if (nextOrder != next.internalOrder()) {
                                         // Is next currently being added?
-                                        boolean nextNew = (msg instanceof TcpDiscoveryNodeAddedMessage &&
-                                            ((TcpDiscoveryNodeAddedMessage)msg).node().id().equals(nextId));
-
-                                        if (!nextNew)
-                                            nextNew = hasPendingAddMessage(nextId);
-
-                                        if (!nextNew) {
+                                        if (!isAddMessageForNode(msg, nextId) && !hasPendingAddMessage(nextId)) {
                                             if (log.isDebugEnabled())
                                                 log.debug("Failed to restore ring because next node order received " +
                                                     "is not as expected [expected=" + next.internalOrder() +
@@ -3963,10 +3950,7 @@ class ServerImpl extends TcpDiscoveryImpl {
             Iterator<TcpDiscoveryAbstractMessage> verifiedMsgs = pendingMsgs.verifiedIterator();
 
             while (verifiedMsgs.hasNext()) {
-                TcpDiscoveryAbstractMessage msg = verifiedMsgs.next();
-
-                if (msg instanceof TcpDiscoveryNodeAddedMessage
-                    && ((TcpDiscoveryNodeAddedMessage)msg).node().id().equals(nodeId))
+                if (isAddMessageForNode(verifiedMsgs.next(), nodeId))
                     return true;
             }
 
