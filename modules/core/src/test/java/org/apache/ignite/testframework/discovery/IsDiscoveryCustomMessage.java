@@ -38,7 +38,7 @@ public class IsDiscoveryCustomMessage<T> extends IsDiscoveryMessage<T> {
     }
 
     /** {@inheritDoc} */
-    public boolean matches(Object msg) {
+    @Override public boolean matches(Object msg) {
         return msg instanceof TcpDiscoveryCustomEventMessage
             && super.matches(unmarshallDiscovery((TcpDiscoveryCustomEventMessage)msg));
     }

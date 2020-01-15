@@ -6207,10 +6207,6 @@ class ServerImpl extends TcpDiscoveryImpl {
                         U.error(log, "Failed to unmarshal discovery custom message.", e);
                     }
 
-                    if(Thread.currentThread().getName().contains("Test0"))
-                        log.info("PRINT CUSTOM ::: " + msgObj);
-
-
                     if (msgObj != null) {
                         DiscoverySpiCustomMessage nextMsg = msgObj.ackMessage();
 

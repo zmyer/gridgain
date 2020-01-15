@@ -36,7 +36,7 @@ public class IsDiscoveryEvent<T> extends BaseMatcher<T> {
     }
 
     /** {@inheritDoc} */
-    public boolean matches(Object msg) {
+    @Override public boolean matches(Object msg) {
         if (msg instanceof DiscoveryEvent) {
             DiscoveryEvent b = (DiscoveryEvent)msg;
 
@@ -47,7 +47,7 @@ public class IsDiscoveryEvent<T> extends BaseMatcher<T> {
     }
 
     /** {@inheritDoc} */
-    public void describeTo(Description description) {
+    @Override public void describeTo(Description description) {
         description.appendValue("DiscoveryEvent(type=" + eventType + ")");
     }
 

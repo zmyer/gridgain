@@ -44,12 +44,12 @@ public class IsDiscoveryMessage<T> extends BaseMatcher<TcpDiscoveryAbstractMessa
     }
 
     /** {@inheritDoc} */
-    public boolean matches(Object msg) {
+    @Override public boolean matches(Object msg) {
         return msgType.isAssignableFrom(msg.getClass()) && predicate.test(msgType.cast(msg));
     }
 
     /** {@inheritDoc} */
-    public void describeTo(Description description) {
+    @Override public void describeTo(Description description) {
         description.appendValue("Class(" + msgType + ") with predicate(" + predicate + ")");
     }
 

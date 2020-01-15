@@ -45,7 +45,7 @@ public class IsDiscoveryEventMessage<T> extends BaseMatcher<DiscoveryEvent> {
     }
 
     /** {@inheritDoc} */
-    public boolean matches(Object event) {
+    @Override public boolean matches(Object event) {
         if (event instanceof DiscoveryCustomEvent) {
             DiscoveryCustomMessage msg = ((DiscoveryCustomEvent)event).customMessage();
 
@@ -56,7 +56,7 @@ public class IsDiscoveryEventMessage<T> extends BaseMatcher<DiscoveryEvent> {
     }
 
     /** {@inheritDoc} */
-    public void describeTo(Description description) {
+    @Override public void describeTo(Description description) {
         description.appendValue("Class(" + msgType + ") with predicate(" + predicate + ")");
     }
 
