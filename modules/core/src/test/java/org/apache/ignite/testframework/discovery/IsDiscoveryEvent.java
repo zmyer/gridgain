@@ -37,13 +37,7 @@ public class IsDiscoveryEvent<T> extends BaseMatcher<T> {
 
     /** {@inheritDoc} */
     @Override public boolean matches(Object msg) {
-        if (msg instanceof DiscoveryEvent) {
-            DiscoveryEvent b = (DiscoveryEvent)msg;
-
-            return b.type() == evtType;
-        }
-
-        return false;
+        return msg instanceof DiscoveryEvent && ((DiscoveryEvent)msg).type() == evtType;
     }
 
     /** {@inheritDoc} */

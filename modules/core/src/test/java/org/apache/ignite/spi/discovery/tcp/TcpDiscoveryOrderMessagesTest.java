@@ -66,6 +66,20 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
         super(false);
     }
 
+    /** {@inheritDoc} */
+    @Override protected void beforeTest() throws Exception {
+        stopAllGrids();
+
+        cleanPersistenceDir();
+    }
+
+    /** {@inheritDoc} */
+    @Override protected void afterTest() throws Exception {
+        stopAllGrids();
+
+        cleanPersistenceDir();
+    }
+
     /** **/
     private DiscoveryController start(int ind) throws Exception {
         return start(ind, false);

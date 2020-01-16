@@ -43,8 +43,8 @@ public class IsNode<T> extends BaseMatcher<T> {
     }
 
     /** {@inheritDoc} */
-    @Override public void describeTo(Description description) {
-        description.appendValue("Node(id=" + nodeId + ")");
+    @Override public void describeTo(Description desc) {
+        desc.appendValue("Node(id=" + nodeId + ")");
     }
 
     /**
