@@ -28,14 +28,13 @@ import org.hamcrest.collection.IsIterableContainingInOrder;
  * Matcher which match the given iterator to the expected patterns.
  * Each conformity should happen only one time in a given order.
  *
- * In easy words, this class filters all objects from the given list which corresponded to configured matches in any order and then the resulted list matches to configured matchers by {@link IsIterableContainingInOrder} laws.
+ * In easy words, this class filters all objects from the given list which corresponded to configured matchers in any order and then the resulted list matches to configured matchers by {@link IsIterableContainingInOrder} laws.
  *
  * Example. For given list [1, 2, 1, 2, 3], with matchers:
  * * [1, 2, 3] - false - '1' matched two times.
  * * [1, 3] - false - '1' matched two times.
  * * [2, 1, 3, 2] - false - order is wrong
  * * [1, 1, 3] - true
- * * [2, 1, 2] - true
  */
 public class HasOneTimeEachInOrder<T> extends IsIterableContainingInOrder<T> {
     /** Expected matchers. */
@@ -44,14 +43,14 @@ public class HasOneTimeEachInOrder<T> extends IsIterableContainingInOrder<T> {
     /**
      * @param matchers Expected matchers.
      */
-    public HasOneTimeEachInOrder(List<Matcher<? super T>> matchers) {
+    private HasOneTimeEachInOrder(List<Matcher<? super T>> matchers) {
         super(matchers);
 
         this.matchers = matchers;
     }
 
     /** {@inheritDoc} */
-    @Override protected boolean matchesSafely(Iterable<? extends T> iterable, Description mismatchDescription) {
+    @Override protected boolean matchesSafely(Iterable<? extends T> iterable, Description mismatchDesc) {
         Iterator<T> objIt = ((Iterable<T>)iterable).iterator();
         List<T> filtered = new ArrayList<>();
 
@@ -64,7 +63,7 @@ public class HasOneTimeEachInOrder<T> extends IsIterableContainingInOrder<T> {
             }
         }
 
-        return super.matchesSafely(filtered, mismatchDescription);
+        return super.matchesSafely(filtered, mismatchDesc);
     }
 
     /**
@@ -75,10 +74,9 @@ public class HasOneTimeEachInOrder<T> extends IsIterableContainingInOrder<T> {
      * @param <T> Type of checked object.
      * @return Matcher.
      */
+    @SafeVarargs
     @Factory
     public static <T> Matcher<Iterable<? extends T>> hasOneTimeEachInOrder(Matcher<? super T>... matchers) {
-        List<Matcher<? super T>> ts = (List<Matcher<? super T>>)Arrays.asList(matchers);
-
-        return new HasOneTimeEachInOrder<T>(ts);
+        return new HasOneTimeEachInOrder<>(Arrays.asList(matchers));
     }
 }

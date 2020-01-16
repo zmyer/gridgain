@@ -15,51 +15,47 @@
  */
 package org.apache.ignite.testframework.discovery;
 
-import org.apache.ignite.events.DiscoveryEvent;
+import java.util.UUID;
+import org.apache.ignite.cluster.ClusterNode;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Factory;
 import org.hamcrest.Matcher;
 
 /**
- * Matcher to check if given object is {@link DiscoveryEvent} which expected type.
+ * Matcher to check if given object is expected node id.
  */
-public class IsDiscoveryEvent<T> extends BaseMatcher<T> {
-    /** Expected value of {@link org.apache.ignite.events.EventType}. */
-    private final int evtType;
+public class IsNode<T> extends BaseMatcher<T> {
+    /** Expected value. */
+    private final UUID nodeId;
 
     /**
-     * @param evtType Expected value of {@link org.apache.ignite.events.EventType}.
+     * @param nodeId Expected value of.
      */
-    private IsDiscoveryEvent(int evtType) {
-        this.evtType = evtType;
+    private IsNode(UUID nodeId) {
+        this.nodeId = nodeId;
     }
 
     /** {@inheritDoc} */
     @Override public boolean matches(Object msg) {
-        if (msg instanceof DiscoveryEvent) {
-            DiscoveryEvent b = (DiscoveryEvent)msg;
+        return msg instanceof ClusterNode && ((ClusterNode)msg).id().equals(nodeId);
 
-            return b.type() == evtType;
-        }
-
-        return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void describeTo(Description desc) {
-        desc.appendValue("DiscoveryEvent(type=" + evtType + ")");
+    @Override public void describeTo(Description description) {
+        description.appendValue("Node(id=" + nodeId + ")");
     }
 
     /**
-     * Expected value of {@link org.apache.ignite.events.EventType}.
+     * Expected value.
      *
-     * @param evtType Event type.
+     * @param nodeId Node id.
      * @param <T> Type of matcher.
      * @return Matcher.
      */
     @Factory
-    public static <T> Matcher<T> isDiscoveryEvent(int evtType) {
-        return new IsDiscoveryEvent<>(evtType);
+    public static Matcher<ClusterNode> isNode(UUID nodeId) {
+        return new IsNode<>(nodeId);
     }
 }

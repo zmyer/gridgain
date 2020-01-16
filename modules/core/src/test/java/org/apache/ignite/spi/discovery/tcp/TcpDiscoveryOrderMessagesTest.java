@@ -18,9 +18,6 @@ package org.apache.ignite.spi.discovery.tcp;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.events.DiscoveryEvent;
@@ -31,6 +28,7 @@ import org.apache.ignite.internal.IgniteInternalFuture;
 import org.apache.ignite.lang.IgnitePredicate;
 import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryDiscardMessage;
+import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddFinishedMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeAddedMessage;
 import org.apache.ignite.spi.discovery.tcp.messages.TcpDiscoveryNodeFailedMessage;
 import org.apache.ignite.testframework.discovery.BlockedDiscoverySpi;
@@ -39,6 +37,7 @@ import org.apache.ignite.testframework.discovery.TestDiscoveryCustomMessage;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
+import static java.util.Arrays.asList;
 import static org.apache.ignite.events.EventType.EVT_NODE_FAILED;
 import static org.apache.ignite.events.EventType.EVT_NODE_JOINED;
 import static org.apache.ignite.events.EventType.EVT_NODE_LEFT;
@@ -49,41 +48,26 @@ import static org.apache.ignite.testframework.discovery.IsDiscoveryCustomMessage
 import static org.apache.ignite.testframework.discovery.IsDiscoveryEvent.isDiscoveryEvent;
 import static org.apache.ignite.testframework.discovery.IsDiscoveryEventMessage.isTestEventMessage;
 import static org.apache.ignite.testframework.discovery.IsDiscoveryMessage.isDiscoveryMessage;
+import static org.apache.ignite.testframework.discovery.IsNode.isNode;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.collection.IsIterableContainingInOrder.contains;
 
 /**
  * Test for {@link TcpDiscoverySpi}.
  */
 public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
-
-    private static Map<String, Queue<DiscoveryEvent>> procesedEvents = new ConcurrentHashMap<>();
-
     /**
      * @throws Exception If fails.
      */
-    public TcpDiscoveryOrderMessagesTest() throws Exception {
+    public TcpDiscoveryOrderMessagesTest() {
         super(false);
     }
 
-    /** {@inheritDoc} */
-    @Override protected void beforeTest() throws Exception {
-        stopAllGrids();
-
-        cleanPersistenceDir();
-    }
-
-    /** {@inheritDoc} */
-    @Override protected void afterTest() throws Exception {
-        stopAllGrids();
-
-        cleanPersistenceDir();
-    }
-
     /** **/
-    public DiscoveryController start(int ind) throws Exception {
+    private DiscoveryController start(int ind) throws Exception {
         return start(ind, false);
     }
 
@@ -95,7 +79,7 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
      * @return Wrapper of node for managing discovery.
      * @throws Exception if failed.
      */
-    public DiscoveryController start(int ind, boolean connectToCrd) throws Exception {
+    private DiscoveryController start(int ind, boolean connectToCrd) throws Exception {
         String igniteInstanceName = getTestIgniteInstanceName(ind);
 
         IgniteConfiguration cfg = getConfiguration(igniteInstanceName);
@@ -110,21 +94,24 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
         cfg.setDiscoverySpi(spi);
 
         //Add listener to store all processed events for further check.
-        ConcurrentLinkedQueue<DiscoveryEvent> processedEvents = new ConcurrentLinkedQueue<>();
+        ConcurrentLinkedQueue<DiscoveryEvent> processedEvts = new ConcurrentLinkedQueue<>();
 
-        int[] listenedEvents = {EVT_NODE_FAILED, EVT_NODE_LEFT, EVT_NODE_JOINED, EVT_DISCOVERY_CUSTOM_EVT};
+        int[] listenedEvts = {EVT_NODE_FAILED, EVT_NODE_LEFT, EVT_NODE_JOINED, EVT_DISCOVERY_CUSTOM_EVT};
 
         cfg.setLocalEventListeners(new HashMap<IgnitePredicate<? extends Event>, int[]>() {{
-            put(event -> processedEvents.add((DiscoveryEvent)event), listenedEvents);
+            put(event -> processedEvts.add((DiscoveryEvent)event), listenedEvts);
         }});
 
         cfg.setFailureHandler(new StopNodeFailureHandler());
 
         IgniteEx ignite = startGrid(optimize(cfg));
 
-        return new DiscoveryController(ignite, processedEvents);
+        return new DiscoveryController(ignite, processedEvts);
     }
 
+    /**
+     * @throws Exception If fail.
+     */
     @Test
     public void shouldNotDuplicateMessagesWhenCrdFailed() throws Exception {
         //given:
@@ -134,8 +121,8 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
         DiscoveryController node3 = start(3);
 
         //Successful message
-        crd.sendCustomEvent(new TestDiscoveryCustomMessage("successfullyMakesAFullPass"));
-        node3.awaitProcessedEvent(isTestEventMessage("successfullyMakesAFullPass"));
+        crd.sendCustomEvent(new TestDiscoveryCustomMessage("successfullyWentAroundWholeRing"));
+        node3.awaitProcessedEvent(isTestEventMessage("successfullyWentAroundWholeRing"));
 
         //Sending a custom message and blocking execution of its discard message on node2
         node2.blockIf(instanceOf(TcpDiscoveryDiscardMessage.class));
@@ -149,7 +136,7 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
 
         node3.sendCustomEvent(new TestDiscoveryCustomMessage("blockedOnCrd"));
 
-        //Failing coordinator before discard message makes a full pass and when it received 'blockedOnCrd' message.
+        //Failing coordinator before discard message went around the whole ring and when it received 'blockedOnCrd' message.
         node1.blockIf(isTestMessage("blockedOnCrd"));
 
         crd.failWhenBlocked();
@@ -164,7 +151,7 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
         assertThat(node1.processedEvents(), hasOneTimeEachInOrder(
             isDiscoveryEvent(EVT_NODE_JOINED), //node2
             isDiscoveryEvent(EVT_NODE_JOINED), //node3
-            isTestEventMessage("successfullyMakesAFullPass"), //from crd
+            isTestEventMessage("successfullyWentAroundWholeRing"), //from crd
             isTestEventMessage("discardMsgBlockedBeforeNode3"), //from crd
             isTestEventMessage("blockedOnCrd"), //from node3 after crd failed and this node became crd
             isDiscoveryEvent(EVT_NODE_FAILED) //from node3 after crd failed
@@ -174,7 +161,7 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //this node
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //node2
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //node3
-            isTestMessage("successfullyMakesAFullPass"), //from crd
+            isTestMessage("successfullyWentAroundWholeRing"), //from crd
             isTestMessage("discardMsgBlockedBeforeNode3"), //from crd
             isTestMessage("discardMsgBlockedBeforeNode3"), //from node3 after crd failed due to node3 hasn't received discard message
             isTestMessage("blockedOnCrd"), //from node3 after crd failed and this node became crd
@@ -183,10 +170,14 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //msg went around the whole ring
         ));
 
+        assertThat(node1.nodes(), contains(
+            asList(isNode(node1.localNodeId()), isNode(node2.localNodeId()), isNode(node3.localNodeId()))
+        ));
+
         //expected: node2
         assertThat(node2.processedEvents(), hasOneTimeEachInOrder(
             isDiscoveryEvent(EVT_NODE_JOINED), //node3
-            isTestEventMessage("successfullyMakesAFullPass"), //from node1
+            isTestEventMessage("successfullyWentAroundWholeRing"), //from node1
             isTestEventMessage("discardMsgBlockedBeforeNode3"), //from node1
             isTestEventMessage("blockedOnCrd"), //from node1
             isDiscoveryEvent(EVT_NODE_FAILED) //from node1
@@ -195,15 +186,19 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
         assertThat(node2.startProcessingMessages(), hasOneTimeEachInOrder(
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //this node
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //node3
-            isTestMessage("successfullyMakesAFullPass"), //from node1
+            isTestMessage("successfullyWentAroundWholeRing"), //from node1
             isTestMessage("discardMsgBlockedBeforeNode3"), ///from node1
             isTestMessage("blockedOnCrd"), //from node1
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //from node1
         ));
 
+        assertThat(node2.nodes(), contains(
+            asList(isNode(node1.localNodeId()), isNode(node2.localNodeId()), isNode(node3.localNodeId()))
+        ));
+
         //expected: node3 - last node in ring
         assertThat(node3.processedEvents(), hasOneTimeEachInOrder(
-            isTestEventMessage("successfullyMakesAFullPass"), //from node2
+            isTestEventMessage("successfullyWentAroundWholeRing"), //from node2
             isTestEventMessage("discardMsgBlockedBeforeNode3"), //from node2
             isTestEventMessage("blockedOnCrd"), //from node2
             isDiscoveryEvent(EVT_NODE_FAILED) //from node2
@@ -211,15 +206,22 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
 
         assertThat(node3.startProcessingMessages(), hasOneTimeEachInOrder(
             instanceOf(TcpDiscoveryNodeAddedMessage.class), //this node
-            isTestMessage("successfullyMakesAFullPass"), //from node1
+            isTestMessage("successfullyWentAroundWholeRing"), //from node1
             isTestMessage("discardMsgBlockedBeforeNode3"), ///from node1
             isTestMessage("blockedOnCrd"), //unvalidated message from this node
             instanceOf(TcpDiscoveryNodeFailedMessage.class), //unvalidated message from this node
             isTestMessage("blockedOnCrd"), //validated message from node2
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //validated message from node2
         ));
+
+        assertThat(node3.nodes(), contains(
+            asList(isNode(node1.localNodeId()), isNode(node2.localNodeId()), isNode(node3.localNodeId()))
+        ));
     }
 
+    /**
+     * @throws Exception If fail.
+     */
     @Test
     public void shouldCorrectlyResendPendingMsgLocallyWhenCrdFailed() throws Exception {
         //given:
@@ -266,10 +268,15 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
 
         //Node1 shouldn't has 'handledOnlyOnCrd' message
         assertThat(node1.startProcessingMessages(), not(hasItem(isTestMessage("handledOnlyOnCrd"))));
+
+        assertThat(node1.nodes(), contains(isNode(node1.localNodeId())));
     }
 
+    /**
+     * @throws Exception If fail.
+     */
     @Test
-    public void shouldCorrectlyJoinWhenCascadeJoinHappen() throws Exception {
+    public void shouldCorrectlyJoinWhenPreviousNodeFail() throws Exception {
         //given:
         DiscoveryController crd = start(0);
         DiscoveryController node1 = start(1);
@@ -330,6 +337,11 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
             isTestMessage("handledEverywhere2"), //went around the whole ring
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //went around the whole ring
         ));
+
+        assertThat(crd.nodes(), contains(
+            asList(isNode(crd.localNodeId()), isNode(node1.localNodeId()), isNode(node3.localNodeId()))
+        ));
+
         //expected: Almost same as coordinator except one event on join and messages which went around the whole ring
         assertThat(node1.processedEvents(), hasOneTimeEachInOrder(
             isDiscoveryEvent(EVT_NODE_JOINED), //node2
@@ -353,6 +365,10 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //from crd
         ));
 
+        assertThat(node1.nodes(), contains(
+            asList(isNode(crd.localNodeId()), isNode(node1.localNodeId()), isNode(node3.localNodeId()))
+        ));
+
         //expected: Almost same as node1 except join messages and 'handledOnlyOnCrdAndNode1'
         assertThat(node3.processedEvents(), hasOneTimeEachInOrder(
             isTestEventMessage("handledEverywhere1"),
@@ -373,6 +389,102 @@ public class TcpDiscoveryOrderMessagesTest extends GridCommonAbstractTest {
             isTestMessage("handledEverywhere2"), //validated message from crd
             instanceOf(TcpDiscoveryNodeFailedMessage.class) //validated message from crd
         ));
+
+        assertThat(node3.nodes(), contains(
+            asList(isNode(crd.localNodeId()), isNode(node1.localNodeId()), isNode(node3.localNodeId()))
+        ));
+    }
+
+    /**
+     * @throws Exception If fail.
+     */
+    @Test
+    public void shouldCorrectlyJoinWhenCrdFail() throws Exception {
+        //given:
+        DiscoveryController crd = start(0);
+        DiscoveryController node1 = start(1);
+
+        //This message would be sent before joining new node but would be executed on all nodes after join
+        // because of delay between AddedMsg and AddedFinishMsg.
+        node1.blockIf(isTestMessage("handledEverywhereAfterJoin"));
+
+        node1.sendCustomEvent(new TestDiscoveryCustomMessage("handledEverywhereAfterJoin"));
+
+        node1.awaitBlocking();
+
+        IgniteInternalFuture<DiscoveryController> start2Fut = runAsync(() -> start(2, true));
+
+        node1.awaitReceivedMessage(isDiscoveryMessage(
+            TcpDiscoveryNodeAddedMessage.class,
+            msg -> msg.node().id().toString().endsWith("02") //Ensure that NodeAddedMessage from last node received.
+        ));
+
+        //This messages should be handled after the new node would join.
+        node1.sendCustomEvent(new TestDiscoveryCustomMessage("handledEverywhere1"));
+        node1.sendCustomEvent(new TestDiscoveryCustomMessage("handledEverywhere2"));
+
+        //When crd received a unvalidated message it would failed.
+        crd.blockIf(isTestMessage("handledEverywhereAfterJoin"));
+
+        node1.release();
+
+        crd.failWhenBlocked();
+
+        DiscoveryController node2 = start2Fut.get(10_000);
+
+        node2.awaitProcessedEvent(isDiscoveryEvent(EVT_NODE_FAILED));
+
+        //expected: New coordinator should handled all messages.
+        assertThat(node1.processedEvents(), hasOneTimeEachInOrder(
+            isDiscoveryEvent(EVT_NODE_JOINED), //node2
+            isTestEventMessage("handledEverywhereAfterJoin"),
+            isTestEventMessage("handledEverywhere1"),
+            isTestEventMessage("handledEverywhere2"),
+            isDiscoveryEvent(EVT_NODE_FAILED)  //crd
+        ));
+
+        assertThat(node1.startProcessingMessages(), hasOneTimeEachInOrder(
+            instanceOf(TcpDiscoveryNodeAddedMessage.class), //this node
+            instanceOf(TcpDiscoveryNodeAddFinishedMessage.class), //this node
+            isTestMessage("handledEverywhereAfterJoin"), //unvalidated message from this node
+            instanceOf(TcpDiscoveryNodeAddedMessage.class), //node2 from crd
+            isTestMessage("handledEverywhere1"), //unvalidated message from this node
+            isTestMessage("handledEverywhere2"), //unvalidated message from this node
+            instanceOf(TcpDiscoveryNodeAddedMessage.class), //node2 from node2 after crd is failed
+//            instanceOf(TcpDiscoveryNodeAddFinishedMessage.class) //AddFinishedMessage handled implicitly on crd
+            isTestMessage("handledEverywhereAfterJoin"), //unvalidated message from node2 after crd is failed
+            isTestMessage("handledEverywhere1"), //unvalidated message from node2 after crd is failed
+            isTestMessage("handledEverywhere2"), //unvalidated message from node2 after crd is failed
+            instanceOf(TcpDiscoveryNodeAddFinishedMessage.class), //went around the whole ring
+            isTestMessage("handledEverywhereAfterJoin"), //went around the whole ring
+            isTestMessage("handledEverywhere1"), //went around the whole ring
+            isTestMessage("handledEverywhere2") //went around the whole ring
+
+        ));
+
+        assertThat(node1.nodes(), contains(asList(isNode(node1.localNodeId()), isNode(node2.localNodeId()))));
+
+        //expected: Almost same as node1 except join messages and 'handledEverywhereAfterJoin'
+        assertThat(node2.processedEvents(), hasOneTimeEachInOrder(
+            isTestEventMessage("handledEverywhereAfterJoin"),
+            isTestEventMessage("handledEverywhere1"),
+            isTestEventMessage("handledEverywhere2"),
+            isDiscoveryEvent(EVT_NODE_FAILED) //crd
+        ));
+
+        assertThat(node2.receivedMessages(), hasOneTimeEachInOrder(
+            isTestMessage("handledEverywhereAfterJoin"), //unvalidated message from node1 which will be reordered on new crd with NodeAddedMessage so eventually it would be handled on this node
+            instanceOf(TcpDiscoveryNodeAddedMessage.class), //this node
+            isTestMessage("handledEverywhere1"), //unvalidated message from node1
+            isTestMessage("handledEverywhere2"), //unvalidated message from node1
+            instanceOf(TcpDiscoveryNodeAddFinishedMessage.class), //node2 from node1(new crd)
+            isTestMessage("handledEverywhereAfterJoin"), //validated message from node1(new crd)
+            isTestMessage("handledEverywhere1"), //validated message from node1(new crd)
+            isTestMessage("handledEverywhere2"), //validated message from node1(new crd)
+            instanceOf(TcpDiscoveryNodeFailedMessage.class) //crd from node1(new crd)
+        ));
+
+        assertThat(node2.nodes(), contains(asList(isNode(node1.localNodeId()), isNode(node2.localNodeId()))));
     }
 
 }

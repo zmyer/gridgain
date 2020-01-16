@@ -15,10 +15,11 @@
  */
 package org.apache.ignite.testframework.discovery;
 
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.Queue;
 import java.util.UUID;
 import org.apache.ignite.IgniteCheckedException;
+import org.apache.ignite.cluster.ClusterNode;
 import org.apache.ignite.events.DiscoveryEvent;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInterruptedCheckedException;
@@ -33,6 +34,8 @@ import static org.junit.Assert.assertTrue;
  * Ignite wrapper for providing a convenient way to manage the discovery messages flow.
  */
 public class DiscoveryController {
+    /** **/
+    private static final int AWAIT_TIMEOUT = 10000;
     /** Ignite representation. */
     private final IgniteEx ignite;
 
@@ -40,7 +43,7 @@ public class DiscoveryController {
     private final BlockedDiscoverySpi spi;
 
     /** Holder of processed events. */
-    private final Queue<DiscoveryEvent> processedEvents;// = new ConcurrentLinkedQueue<>();
+    private final Queue<DiscoveryEvent> processedEvts;// = new ConcurrentLinkedQueue<>();
 
     /**
      * @param ignite Ignite with {@link BlockedDiscoverySpi}.
@@ -48,11 +51,7 @@ public class DiscoveryController {
     public DiscoveryController(IgniteEx ignite, Queue<DiscoveryEvent> queue) {
         this.ignite = ignite;
 
-        processedEvents = queue;
-//        ignite.context().event().addLocalEventListener(
-//            event -> processedEvents.add((DiscoveryEvent)event),
-//            EVT_NODE_FAILED, EVT_NODE_LEFT, EVT_NODE_JOINED, EVT_DISCOVERY_CUSTOM_EVT
-//        );
+        processedEvts = queue;
 
         if (!(ignite.configuration().getDiscoverySpi() instanceof BlockedDiscoverySpi))
             throw new RuntimeException("BlockedDiscoverySpi should be configured");
@@ -61,75 +60,79 @@ public class DiscoveryController {
     }
 
     /**
+     * @return All nodes from cluster.
+     */
+    public Collection<ClusterNode> nodes(){
+        return ignite.cluster().nodes();
+    }
+
+    /**
      * Helper method to await the start of processing a message selected by the condition.
      *
-     * @param predicate Condition for awaiting.
+     * @param pred Condition for awaiting.
      * @throws IgniteInterruptedCheckedException If fail.
      */
     public void awaitProcessingMessage(
-        Matcher<TcpDiscoveryAbstractMessage> predicate) throws IgniteInterruptedCheckedException {
+        Matcher<TcpDiscoveryAbstractMessage> pred) throws IgniteInterruptedCheckedException {
         assertTrue(
             waitForCondition(() -> {
-                    Iterator<TcpDiscoveryAbstractMessage> it = startProcessingMessages().iterator();
-                    while (it.hasNext())
-                        if (predicate.matches(it.next()))
+                    for (TcpDiscoveryAbstractMessage message : startProcessingMessages())
+                        if (pred.matches(message))
                             return true;
 
                     return false;
                 },
-                10000)
+                AWAIT_TIMEOUT)
         );
     }
 
     /**
      * Helper method to await the start of processing a message selected by the condition.
      *
-     * @param predicate Condition for awaiting.
+     * @param pred Condition for awaiting.
      * @throws IgniteInterruptedCheckedException If fail.
      */
-    public void awaitProcessedEvent(Matcher<DiscoveryEvent> predicate) throws IgniteInterruptedCheckedException {
+    public void awaitProcessedEvent(Matcher<DiscoveryEvent> pred) throws IgniteInterruptedCheckedException {
         assertTrue(
             waitForCondition(() -> {
-                    Iterator<DiscoveryEvent> it = processedEvents().iterator();
-                    while (it.hasNext())
-                        if (predicate.matches(it.next()))
+                    for (DiscoveryEvent event : processedEvents())
+                        if (pred.matches(event))
                             return true;
 
                     return false;
                 },
-                10000)
+                AWAIT_TIMEOUT)
         );
     }
 
     /**
-     * Helper method to await the start of processing a message selected by the condition.
+     * Helper method to await reading a message from socket by the condition.
      *
-     * @param predicate Condition for awaiting.
+     * @param pred Condition for awaiting.
      * @throws IgniteInterruptedCheckedException If fail.
      */
     public void awaitReceivedMessage(
-        Matcher<TcpDiscoveryAbstractMessage> predicate) throws IgniteInterruptedCheckedException {
+        Matcher<TcpDiscoveryAbstractMessage> pred) throws IgniteInterruptedCheckedException {
         assertTrue(
             waitForCondition(() -> {
-                    Iterator<TcpDiscoveryAbstractMessage> it = receivedMessages().iterator();
-                    while (it.hasNext())
-                        if (predicate.matches(it.next()))
+                    for (TcpDiscoveryAbstractMessage message : receivedMessages())
+                        if (pred.matches(message))
                             return true;
 
                     return false;
                 },
-                10000)
+                AWAIT_TIMEOUT)
         );
     }
 
     /**
      * Register condition by which execution of message would be blocked.
      *
-     * @param predicate Condition for blocking.
+     * @param pred Condition for blocking.
      * @throws IgniteInterruptedCheckedException If fail.
      */
-    public void blockIf(Matcher<TcpDiscoveryAbstractMessage> predicate) throws IgniteInterruptedCheckedException {
-        spi.blockIf(predicate);
+    public void blockIf(Matcher<TcpDiscoveryAbstractMessage> pred) throws IgniteInterruptedCheckedException {
+        spi.blockIf(pred);
     }
 
     /**
@@ -181,7 +184,7 @@ public class DiscoveryController {
      * @return Events which was processed.
      */
     public Iterable<DiscoveryEvent> processedEvents() {
-        return processedEvents;
+        return processedEvts;
     }
 
     /**

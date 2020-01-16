@@ -31,10 +31,10 @@ import static org.apache.ignite.testframework.GridTestUtils.unmarshallDiscovery;
 public class IsDiscoveryCustomMessage<T> extends IsDiscoveryMessage<T> {
     /**
      * @param type Expected class of message.
-     * @param predicate The condition which message should be corresponded to.
+     * @param pred The condition which message should be corresponded to.
      */
-    public IsDiscoveryCustomMessage(Class<T> type, Predicate<T> predicate) {
-        super(type, predicate);
+    private IsDiscoveryCustomMessage(Class<T> type, Predicate<T> pred) {
+        super(type, pred);
     }
 
     /** {@inheritDoc} */
@@ -47,11 +47,11 @@ public class IsDiscoveryCustomMessage<T> extends IsDiscoveryMessage<T> {
      * Matcher to check if given object either {@link TestDiscoveryCustomMessage} or {@link DiscoveryCustomEvent} with
      * {@link TestDiscoveryCustomMessage} which contains expected id.
      *
-     * @param expectedValue Expected value of {@link TestDiscoveryCustomMessage}.
+     * @param expVal Expected value of {@link TestDiscoveryCustomMessage}.
      * @return Matcher.
      */
     @Factory
-    public static Matcher<TcpDiscoveryAbstractMessage> isTestMessage(String expectedValue) {
-        return new IsDiscoveryCustomMessage<>(TestDiscoveryCustomMessage.class, (msg) -> msg.value().equals(expectedValue));
+    public static Matcher<TcpDiscoveryAbstractMessage> isTestMessage(String expVal) {
+        return new IsDiscoveryCustomMessage<>(TestDiscoveryCustomMessage.class, (msg) -> msg.value().equals(expVal));
     }
 }

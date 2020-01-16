@@ -32,25 +32,25 @@ public class IsDiscoveryMessage<T> extends BaseMatcher<TcpDiscoveryAbstractMessa
     private final Class<T> msgType;
 
     /** The condition which message should be corresponded to. */
-    private final Predicate<T> predicate;
+    private final Predicate<T> pred;
 
     /**
      * @param type Expected class of message.
-     * @param predicate The condition which message should be corresponded to.
+     * @param pred The condition which message should be corresponded to.
      */
-    public IsDiscoveryMessage(Class<T> type, Predicate<T> predicate) {
+    IsDiscoveryMessage(Class<T> type, Predicate<T> pred) {
         msgType = type;
-        this.predicate = predicate;
+        this.pred = pred;
     }
 
     /** {@inheritDoc} */
     @Override public boolean matches(Object msg) {
-        return msgType.isAssignableFrom(msg.getClass()) && predicate.test(msgType.cast(msg));
+        return msgType.isAssignableFrom(msg.getClass()) && pred.test(msgType.cast(msg));
     }
 
     /** {@inheritDoc} */
-    @Override public void describeTo(Description description) {
-        description.appendValue("Class(" + msgType + ") with predicate(" + predicate + ")");
+    @Override public void describeTo(Description desc) {
+        desc.appendValue("Class(" + msgType + ") with predicate(" + pred + ")");
     }
 
     /**
@@ -58,12 +58,12 @@ public class IsDiscoveryMessage<T> extends BaseMatcher<TcpDiscoveryAbstractMessa
      * {@link TestDiscoveryCustomMessage} which contains expected id.
      *
      * @param type Expected class of message.
-     * @param predicate The condition which message should be corresponded to.
+     * @param pred The condition which message should be corresponded to.
      * @param <T> Type of matcher.
      * @return Matcher.
      */
     @Factory
-    public static <T> Matcher<TcpDiscoveryAbstractMessage> isDiscoveryMessage(Class<T> type, Predicate<T> predicate) {
-        return new IsDiscoveryMessage<>(type, predicate);
+    public static <T> Matcher<TcpDiscoveryAbstractMessage> isDiscoveryMessage(Class<T> type, Predicate<T> pred) {
+        return new IsDiscoveryMessage<>(type, pred);
     }
 }

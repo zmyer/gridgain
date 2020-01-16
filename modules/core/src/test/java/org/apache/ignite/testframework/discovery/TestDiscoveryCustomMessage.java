@@ -73,6 +73,7 @@ public class TestDiscoveryCustomMessage implements DiscoveryCustomMessage {
         return val;
     }
 
+    /** {@inheritDoc} */
     @Override public String toString() {
         return GridToStringBuilder.toString(TestDiscoveryCustomMessage.class, this);
     }

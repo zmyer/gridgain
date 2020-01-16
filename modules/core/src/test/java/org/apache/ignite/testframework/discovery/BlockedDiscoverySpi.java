@@ -58,8 +58,6 @@ public class BlockedDiscoverySpi extends TcpDiscoverySpi {
     @Override protected void startMessageProcess(TcpDiscoveryAbstractMessage msg) {
         Matcher<TcpDiscoveryAbstractMessage> predicate = this.predicate;
 
-        System.out.println(Thread.currentThread().getName() + " ::: " + msg);
-
         if (predicate != null) {
             if (predicate.matches(msg)) {
                 this.predicate = null;

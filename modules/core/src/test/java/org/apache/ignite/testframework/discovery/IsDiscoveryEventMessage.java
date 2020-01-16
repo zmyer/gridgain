@@ -33,31 +33,31 @@ public class IsDiscoveryEventMessage<T> extends BaseMatcher<DiscoveryEvent> {
     private final Class<T> msgType;
 
     /** The condition which message should be corresponded to. */
-    private final Predicate<T> predicate;
+    private final Predicate<T> pred;
 
     /**
      * @param type Expected class of message.
-     * @param predicate The condition which message should be corresponded to.
+     * @param pred The condition which message should be corresponded to.
      */
-    public IsDiscoveryEventMessage(Class<T> type, Predicate<T> predicate) {
+    public IsDiscoveryEventMessage(Class<T> type, Predicate<T> pred) {
         msgType = type;
-        this.predicate = predicate;
+        this.pred = pred;
     }
 
     /** {@inheritDoc} */
-    @Override public boolean matches(Object event) {
-        if (event instanceof DiscoveryCustomEvent) {
-            DiscoveryCustomMessage msg = ((DiscoveryCustomEvent)event).customMessage();
+    @Override public boolean matches(Object evt) {
+        if (evt instanceof DiscoveryCustomEvent) {
+            DiscoveryCustomMessage msg = ((DiscoveryCustomEvent)evt).customMessage();
 
-            return msgType.isAssignableFrom(msg.getClass()) && predicate.test(msgType.cast(msg));
+            return msgType.isAssignableFrom(msg.getClass()) && pred.test(msgType.cast(msg));
         }
 
         return false;
     }
 
     /** {@inheritDoc} */
-    @Override public void describeTo(Description description) {
-        description.appendValue("Class(" + msgType + ") with predicate(" + predicate + ")");
+    @Override public void describeTo(Description desc) {
+        desc.appendValue("Class(" + msgType + ") with predicate(" + pred + ")");
     }
 
     /**
@@ -65,24 +65,24 @@ public class IsDiscoveryEventMessage<T> extends BaseMatcher<DiscoveryEvent> {
      * {@link TestDiscoveryCustomMessage} which contains expected id.
      *
      * @param type Expected class of message.
-     * @param predicate The condition which message should be corresponded to.
+     * @param pred The condition which message should be corresponded to.
      * @param <T> Type of matcher.
      * @return Matcher.
      */
     @Factory
-    public static <T> Matcher<DiscoveryEvent> isDiscoveryEventMessage(Class<T> type, Predicate<T> predicate) {
-        return new IsDiscoveryEventMessage<>(type, predicate);
+    public static <T> Matcher<DiscoveryEvent> isDiscoveryEventMessage(Class<T> type, Predicate<T> pred) {
+        return new IsDiscoveryEventMessage<>(type, pred);
     }
 
     /**
      * Matcher to check if given object {@link DiscoveryCustomEvent} with {@link TestDiscoveryCustomMessage} which
      * contains expected id.
      *
-     * @param expectedValue Expected value of {@link TestDiscoveryCustomMessage}.
+     * @param expVal Expected value of {@link TestDiscoveryCustomMessage}.
      * @return Matcher.
      */
     @Factory
-    public static Matcher<DiscoveryEvent> isTestEventMessage(String expectedValue) {
-        return new IsDiscoveryEventMessage<>(TestDiscoveryCustomMessage.class, (msg) -> msg.value().equals(expectedValue));
+    public static Matcher<DiscoveryEvent> isTestEventMessage(String expVal) {
+        return new IsDiscoveryEventMessage<>(TestDiscoveryCustomMessage.class, (msg) -> msg.value().equals(expVal));
     }
 }
