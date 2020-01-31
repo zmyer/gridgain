@@ -118,7 +118,7 @@ public class CommandArgUtils {
             neededObligatoryParams.remove(param);
         }
 
-        if (neededObligatoryParams.size() > 0)
+        if (!neededObligatoryParams.isEmpty())
             throw new IgniteException("Missing obligatory parameters: " + neededObligatoryParams);
 
         return res;

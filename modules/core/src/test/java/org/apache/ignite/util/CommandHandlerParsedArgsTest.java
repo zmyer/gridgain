@@ -48,13 +48,17 @@ import static org.junit.Assert.assertEquals;
  *
  */
 public class CommandHandlerParsedArgsTest {
-    private static Map<StatisticsCommandArg, Object> statsExpectedMap;
+    /** */
+    private static final Map<StatisticsCommandArg, Object> statsExpectedMap;
 
-    private static Map<IdleVerifyCommandArg, Object> idleVerifyExpectedMap;
+    /** */
+    private static final Map<IdleVerifyCommandArg, Object> idleVerifyExpectedMap;
 
-    private static CommandParameterConfig<StatisticsCommandArg> statsCommandParamCfg;
+    /** */
+    private static final CommandParameterConfig<StatisticsCommandArg> statsCommandParamCfg;
 
-    private static CommandParameterConfig<IdleVerifyCommandArg> idleVerifyCommandParamCfg;
+    /** */
+    private static final CommandParameterConfig<IdleVerifyCommandArg> idleVerifyCommandParamCfg;
 
     static {
         statsExpectedMap = new HashMap<>();
