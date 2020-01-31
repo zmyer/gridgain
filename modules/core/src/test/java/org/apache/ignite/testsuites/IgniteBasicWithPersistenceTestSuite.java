@@ -36,8 +36,9 @@ import org.apache.ignite.internal.processors.cache.persistence.filename.PdsConsi
 import org.apache.ignite.marshaller.GridMarshallerMappingConsistencyTest;
 import org.apache.ignite.util.CommandHandlerParsedArgsTest;
 import org.apache.ignite.util.GridCommandHandlerClusterByClassTest;
-import org.apache.ignite.util.GridCommandHandlerTest;
+import org.apache.ignite.util.GridCommandHandlerRUTest;
 import org.apache.ignite.util.GridCommandHandlerSslTest;
+import org.apache.ignite.util.GridCommandHandlerTest;
 import org.apache.ignite.util.GridInternalTaskUnusedWalSegmentsTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
@@ -60,6 +61,7 @@ import org.junit.runners.Suite;
     GridCommandHandlerClusterByClassTest.class,
     GridCommandHandlerSslTest.class,
     CommandHandlerParsedArgsTest.class,
+    GridCommandHandlerRUTest.class,
     GridInternalTaskUnusedWalSegmentsTest.class,
 
     GridNodeMetricsLogPdsSelfTest.class,
