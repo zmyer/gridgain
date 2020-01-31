@@ -1002,7 +1002,7 @@ public class DistributedMetaStorageImpl extends GridProcessorAdapter
        if (!isSupported(ctx))
             throw new IgniteCheckedException(NOT_SUPPORTED_MSG);
 
-       checkMaxKeyLengthExceeded(key);
+        checkMaxKeyLengthExceeded(key);
 
         UUID reqId = UUID.randomUUID();
 

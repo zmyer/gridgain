@@ -12066,4 +12066,25 @@ public abstract class IgniteUtils {
     public static String unquote(String s) {
         return s == null ? null : s.replaceAll("^\"|\"$", "");
     }
+
+    /**
+     * Checks the range of the long value.
+     *
+     * @param low Lower bound of the value, inclusive.
+     * @param high Higher bound of the value, inclusive.
+     * @param val Value.
+     * @param valName Value name (for exception message).
+     */
+    public static long checkRange(long low, long high, long val, String valName) {
+        if (val < low || val > high) {
+            throw new IgniteException(
+                new GridStringBuilder("Value ")
+                    .a(valName == null ? "" : valName + " ")
+                    .a(" must be within the range [").a(low).a(",").a(high).a("]").a(" but received: ").a((val))
+                    .toString()
+            );
+        }
+
+        return val;
+    }
 }

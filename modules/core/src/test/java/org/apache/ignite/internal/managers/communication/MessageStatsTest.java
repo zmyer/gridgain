@@ -15,6 +15,9 @@
  */
 package org.apache.ignite.internal.managers.communication;
 
+import java.util.LinkedList;
+import java.util.List;
+import java.util.function.Consumer;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.IgniteException;
@@ -24,6 +27,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.DiagnosticMXBeanImpl;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.processors.cache.distributed.near.GridNearTxPrepareRequest;
+import org.apache.ignite.lang.IgniteBiTuple;
 import org.apache.ignite.lang.IgniteInClosure;
 import org.apache.ignite.mxbean.DiagnosticMXBean;
 import org.apache.ignite.plugin.extensions.communication.Message;
@@ -37,16 +41,20 @@ import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
 
 import static org.apache.ignite.IgniteSystemProperties.IGNITE_MESSAGE_STATS_ENABLED;
+import static org.apache.ignite.IgniteSystemProperties.IGNITE_STAT_TOO_LONG_PROCESSING;
 import static org.apache.ignite.cache.CacheAtomicityMode.TRANSACTIONAL;
 import static org.apache.ignite.cache.CacheWriteSynchronizationMode.FULL_SYNC;
+import static org.apache.ignite.internal.util.lang.GridFunc.t;
 
 /**
  *
  */
-@WithSystemProperty(key = IGNITE_MESSAGE_STATS_ENABLED, value = "true")
 public class MessageStatsTest extends GridCommonAbstractTest {
     /** */
     private static final String CACHE_NAME = "test";
+
+    /** */
+    private static final String CLIENT = "client";
 
     /** */
     private LogListener slowMsgLogListener = LogListener.matches("Slow message").build();
@@ -61,13 +69,18 @@ public class MessageStatsTest extends GridCommonAbstractTest {
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);
 
-        CacheConfiguration ccfg = new CacheConfiguration(CACHE_NAME);
+        if (igniteInstanceName.startsWith(CLIENT)) {
+            cfg.setClientMode(true);
+        }
+        else {
+            CacheConfiguration ccfg = new CacheConfiguration(CACHE_NAME);
 
-        ccfg.setAtomicityMode(TRANSACTIONAL);
-        ccfg.setBackups(1);
-        ccfg.setWriteSynchronizationMode(FULL_SYNC);
+            ccfg.setAtomicityMode(TRANSACTIONAL);
+            ccfg.setBackups(1);
+            ccfg.setWriteSynchronizationMode(FULL_SYNC);
 
-        cfg.setCacheConfiguration(ccfg);
+            cfg.setCacheConfiguration(ccfg);
+        }
 
         cfg.setMetricExporterSpi(new JmxMetricExporterSpi());
 
@@ -127,6 +140,99 @@ public class MessageStatsTest extends GridCommonAbstractTest {
         ignite.context().io().dumpProcessedMessagesStats();
 
         assertTrue(slowMsgLogListener.check());
+    }
+
+    /**
+     *
+     *
+     * @param sysProperty
+     * @param sysPropertyVal
+     * @param srvCnt
+     * @param clientCnt
+     * @param checks
+     * @throws Exception If failed.
+     */
+    private void testJmx(
+        String sysProperty,
+        String sysPropertyVal,
+        int srvCnt,
+        int clientCnt,
+        IgniteBiTuple<Boolean, Consumer<DiagnosticMXBean>>... checks
+    ) throws Exception {
+        String oldVal = System.getProperty(sysProperty);
+
+        if (sysPropertyVal == null)
+            System.clearProperty(sysProperty);
+        else
+            System.setProperty(sysProperty, sysPropertyVal);
+
+        for (int i = 0; i < srvCnt; i++)
+            startGrid(i);
+
+        for (int i = 0; i < clientCnt; i++)
+            startGrid(CLIENT + i);
+
+        List<DiagnosticMXBean> diagnosticMXBeans = new LinkedList<>();
+
+        for (int i = 0; i < srvCnt + clientCnt; i++)
+            diagnosticMXBeans.add(getMxBean(grid(0).name(), "Diagnostic", DiagnosticMXBean.class, DiagnosticMXBeanImpl.class));
+
+        DiagnosticMXBean nodeMxBean = diagnosticMXBeans.get(0);
+
+        for (IgniteBiTuple<Boolean, Consumer<DiagnosticMXBean>> check : checks) {
+            if (check.get1()) {
+                for (DiagnosticMXBean mxBean : diagnosticMXBeans)
+                    check.get2().accept(mxBean);
+            }
+            else
+                check.get2().accept(nodeMxBean);
+        }
+
+        if (oldVal == null)
+            System.clearProperty(sysProperty);
+        else
+            System.setProperty(sysProperty, oldVal);
+    }
+
+    /** */
+    @Test
+    public void testJmxStatsEnabledOneNode() throws Exception {
+        Consumer<DiagnosticMXBean> afterStart = mxBean -> assertFalse(mxBean.getDiagnosticMessageStatsEnabled());
+        Consumer<DiagnosticMXBean> setTrue = mxBean -> mxBean.setDiagnosticMessageStatsEnabled(true);
+        Consumer<DiagnosticMXBean> afterSet = mxBean -> assertTrue(mxBean.getDiagnosticMessageStatsEnabled());
+
+        testJmx(IGNITE_MESSAGE_STATS_ENABLED, "false", 1, 0, t(false, afterStart), t(false, setTrue), t(false, afterSet));
+    }
+
+    /** */
+    @Test
+    public void testJmxStatsEnabledMultipleNodes() throws Exception {
+        Consumer<DiagnosticMXBean> shouldBeFalse = mxBean -> assertFalse(mxBean.getDiagnosticMessageStatsEnabled());
+        Consumer<DiagnosticMXBean> setTrue = mxBean -> mxBean.setDiagnosticMessageStatsEnabled(true);
+        Consumer<DiagnosticMXBean> shouldBeTrue = mxBean -> assertTrue(mxBean.getDiagnosticMessageStatsEnabled());
+        Consumer<DiagnosticMXBean> setFalse = mxBean -> mxBean.setDiagnosticMessageStatsEnabled(false);
+
+        testJmx(IGNITE_MESSAGE_STATS_ENABLED, "false", 2, 2, t(true, shouldBeFalse), t(false, setTrue), t(true, shouldBeTrue), t(false, setFalse), t(true, shouldBeFalse));
+    }
+
+    /** */
+    @Test
+    public void testJmxStatsTooLongProcessingOneNode() throws Exception {
+        Consumer<DiagnosticMXBean> afterStart = mxBean -> assertEquals(10, mxBean.getDiagnosticMessageStatTooLongProcessing());
+        Consumer<DiagnosticMXBean> set20 = mxBean -> mxBean.setDiagnosticMessageStatTooLongProcessing(20);
+        Consumer<DiagnosticMXBean> afterSet = mxBean -> assertEquals(20, mxBean.getDiagnosticMessageStatTooLongProcessing());
+
+        testJmx(IGNITE_STAT_TOO_LONG_PROCESSING, "10", 1, 0, t(false, afterStart), t(false, set20), t(false, afterSet));
+    }
+
+    /** */
+    @Test
+    public void testJmxStatsTooLongProcessingMultipleNode() throws Exception {
+        Consumer<DiagnosticMXBean> afterStart = mxBean -> assertEquals(10, mxBean.getDiagnosticMessageStatTooLongProcessing());
+        Consumer<DiagnosticMXBean> set20 = mxBean -> mxBean.setDiagnosticMessageStatTooLongProcessing(20);
+        Consumer<DiagnosticMXBean> afterSet = mxBean -> assertEquals(20, mxBean.getDiagnosticMessageStatTooLongProcessing());
+
+        testJmx(IGNITE_STAT_TOO_LONG_PROCESSING, "10", 2, 2, t(true, afterStart), t(false, set20), t(true, afterSet));
     }
 
     /**
