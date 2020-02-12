@@ -26,7 +26,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -224,9 +226,15 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
     @GridToStringInclude
     private GridCacheEntryExtras extras;
 
+    CycleDetectingLockFactory factory = CycleDetectingLockFactory.newInstance(CycleDetectingLockFactory.Policies.THROW);
+
+    Random rnd = new Random();
     /** */
     @GridToStringExclude
-    private final ReentrantLock lock = new ReentrantLock();
+    private final CycleDetectingLockFactory.CycleDetectingReentrantLock lock = (CycleDetectingLockFactory.CycleDetectingReentrantLock)factory.newReentrantLock(String.valueOf(rnd.nextInt()));
+
+    //private final ReentrantLock lockForNestedCases = factory.newReentrantLock(String.valueOf(rnd.nextInt()));
+    //private final ReentrantLock lock = factory.newReentrantLock(String.valueOf(rnd.nextInt()));
 
     /** Read Lock for continuous query listener */
     @GridToStringExclude
@@ -5038,7 +5046,20 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
     /** {@inheritDoc} */
     @Override public void lockEntry() {
-        lock.lock();
+        try {
+            lockEntry(false);
+        }
+        catch (IgniteCheckedException e) {
+            // won't occur
+        }
+    }
+
+    @Override public void lockEntry(boolean nestedLocksAllowed) throws IgniteCheckedException {
+        if (nestedLocksAllowed)
+            lock.lockWithDetection();
+        else
+            lock.lock();
+
     }
 
     /** {@inheritDoc} */

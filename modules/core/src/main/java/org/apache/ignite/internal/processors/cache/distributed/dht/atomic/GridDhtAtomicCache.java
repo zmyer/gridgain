@@ -1740,7 +1740,16 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
 
             // If batch store update is enabled, we need to lock all entries.
             // First, need to acquire locks on cache entries, then check filter.
-            List<GridDhtCacheEntry> locked = lockEntries(req, req.topologyVersion());;
+            List<GridDhtCacheEntry> locked;
+            try {
+                locked = lockEntries(req, req.topologyVersion());
+            }
+            catch (IgniteCheckedException  e) {
+                onForceKeysError(node.id(), req, completionCb, e);
+
+                return;
+            }
+
 
             Collection<IgniteBiTuple<GridDhtCacheEntry, GridCacheVersion>> deleted = null;
 
@@ -2992,14 +3001,14 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
      * are released.
      */
     private List<GridDhtCacheEntry> lockEntries(GridNearAtomicAbstractUpdateRequest req, AffinityTopologyVersion topVer)
-        throws GridDhtInvalidPartitionException {
+        throws GridDhtInvalidPartitionException, IgniteCheckedException {
         if (req.size() == 1) {
             KeyCacheObject key = req.key(0);
 
             while (true) {
                 GridDhtCacheEntry entry = entryExx(key, topVer);
 
-                entry.lockEntry();
+                entry.lockEntry(true);
 
                 if (entry.obsolete())
                     entry.unlockEntry();
@@ -3025,7 +3034,16 @@ public class GridDhtAtomicCache<K, V> extends GridDhtCacheAdapter<K, V> {
                     if (entry == null)
                         continue;
 
-                    entry.lockEntry();
+                    try {
+                        entry.lockEntry(true);
+                    }
+                    catch (IgniteCheckedException e) {
+                        for (int j = 0; j < i; j++) {
+                            if (locked.get(j) != null)
+                                locked.get(j).unlockEntry();
+                        }
+                        throw e;
+                    }
 
                     if (entry.obsolete()) {
                         // Unlock all locked.

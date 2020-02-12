@@ -1022,6 +1022,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
         UUID subjId,
         String taskName
     ) throws IgniteCheckedException {
+        // TODO should we use partialUpdateException() here?
         List<GridCacheEntryEx> locked = lockEntries(keys);
 
         try {
@@ -1453,7 +1454,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
      * @param keys Keys to lock.
      * @return Collection of locked entries.
      */
-    private List<GridCacheEntryEx> lockEntries(Collection<? extends K> keys) {
+    private List<GridCacheEntryEx> lockEntries(Collection<? extends K> keys) throws IgniteCheckedException {
         List<GridCacheEntryEx> locked = new ArrayList<>(keys.size());
 
         boolean nullKeys = false;
@@ -1477,7 +1478,7 @@ public class GridLocalAtomicCache<K, V> extends GridLocalCache<K, V> {
             for (int i = 0; i < locked.size(); i++) {
                 GridCacheEntryEx entry = locked.get(i);
 
-                entry.lockEntry();
+                entry.lockEntry(true);
 
                 if (entry.obsolete()) {
                     // Unlock all locked.
