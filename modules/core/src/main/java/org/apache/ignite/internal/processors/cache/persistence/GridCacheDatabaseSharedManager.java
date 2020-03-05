@@ -2141,7 +2141,15 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
 
             startTimer.finishGlobalStage("Restore logical state");
 
-            walTail = tailPointer(logicalState);
+            // Should flush all data in buffers before read last WAL pointer.
+            // Iterator read records only from files.
+            cctx.wal().flush(null, true);
+
+            // We must return null for NULL_PTR record, because FileWriteAheadLogManager.resumeLogging
+            // can't write header without that condition.
+            WALPointer lastReadPointer = logicalState.lastReadRecordPointer();
+
+            walTail = tailPointer(lastReadPointer.equals(CheckpointStatus.NULL_PTR) ? null : lastReadPointer);
 
             cctx.wal().onDeActivate(kctx);
         }
@@ -2206,33 +2214,26 @@ public class GridCacheDatabaseSharedManager extends IgniteCacheDatabaseSharedMan
     /**
      * Calculates tail pointer for WAL at the end of logical recovery.
      *
-     * @param logicalState State after logical recovery.
+     * @param from Start replay WAL from.
      * @return Tail pointer.
      * @throws IgniteCheckedException If failed.
      */
-    private WALPointer tailPointer(RestoreLogicalState logicalState) throws IgniteCheckedException {
-        // Should flush all data in buffers before read last WAL pointer.
-        // Iterator read records only from files.
-        WALPointer lastFlushPtr = cctx.wal().flush(null, true);
+    private WALPointer tailPointer(WALPointer from) throws IgniteCheckedException {
+        WALIterator it = cctx.wal().replay(from);
 
-        // We must return null for NULL_PTR record, because FileWriteAheadLogManager.resumeLogging
-        // can't write header without that condition.
-        WALPointer lastReadPtr = logicalState.lastReadRecordPointer();
+        try {
+            while (it.hasNextX()) {
+                IgniteBiTuple<WALPointer, WALRecord> rec = it.nextX();
 
-        if (lastFlushPtr != null && lastReadPtr == null)
-            return lastFlushPtr;
-
-        if (lastFlushPtr == null && lastReadPtr != null)
-            return lastReadPtr;
-
-        if (lastFlushPtr != null && lastReadPtr != null) {
-            FileWALPointer lastFlushPtr0 = (FileWALPointer)lastFlushPtr;
-            FileWALPointer lastReadPtr0 = (FileWALPointer)lastReadPtr;
-
-            return lastReadPtr0.compareTo(lastFlushPtr0) >= 0 ? lastReadPtr : lastFlushPtr0;
+                if (rec == null)
+                    break;
+            }
+        }
+        finally {
+            it.close();
         }
 
-        return null;
+        return it.lastRead().map(WALPointer::next).orElse(null);
     }
 
     /**
