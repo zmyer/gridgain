@@ -34,6 +34,7 @@ import org.apache.ignite.configuration.IgniteConfiguration;
         "indexingSpi",
         "encryptionSpi",
         "metricExporterSpi",
+        "systemViewExporterSpi",
         "tracingSpi",
         "eventStorageSpi",
         "discoverySpi",

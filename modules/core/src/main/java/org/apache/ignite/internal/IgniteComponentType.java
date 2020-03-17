@@ -20,6 +20,7 @@ import java.lang.reflect.Constructor;
 import org.apache.ignite.IgniteCheckedException;
 import org.apache.ignite.internal.processors.compress.CompressionProcessor;
 import org.apache.ignite.internal.processors.management.NoopManagementConsoleProcessor;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.plugin.extensions.communication.MessageFactory;
 import org.jetbrains.annotations.Nullable;
@@ -176,14 +177,7 @@ public enum IgniteComponentType {
      * @return {@code True} if in classpath.
      */
     public boolean inClassPath() {
-        try {
-            Class.forName(clsName);
-
-            return true;
-        }
-        catch (ClassNotFoundException ignore) {
-            return false;
-        }
+        return IgniteUtils.inClassPath(clsName);
     }
 
     /**
