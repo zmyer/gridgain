@@ -78,6 +78,14 @@ public class IgniteUtilsWorkDirectoryTest {
     }
 
     /**
+     * My_test_1
+     */
+    @Test
+    public void myTest1() {
+        X.println("myTest1 passed");
+    }
+
+    /**
      * The work directory specified by the user has the highest priority
      */
     @Test
