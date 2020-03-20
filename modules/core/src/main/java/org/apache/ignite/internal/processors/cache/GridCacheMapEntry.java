@@ -253,9 +253,14 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
         if (log == null)
             log = U.logger(cctx.kernalContext(), logRef, GridCacheMapEntry.class);
 
-        key = (KeyCacheObject)cctx.kernalContext().cacheObjects().prepareForCache(key, cctx);
-
         assert key != null;
+
+        try {
+            key = (KeyCacheObject)key.prepareForCache(cctx.cacheObjectContext(), false);
+        }
+        catch (IgniteCheckedException e) {
+            e.printStackTrace();
+        }
 
         this.key = key;
         this.hash = key.hashCode();
@@ -898,7 +903,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             if (startVer.equals(ver)) {
                 if (ret != null) {
                     // Detach value before index update.
-                    ret = cctx.kernalContext().cacheObjects().prepareForCache(ret, cctx);
+                    ret = ret.prepareForCache(cctx.cacheObjectContext(), true);
 
                     nextVer = nextVer != null ? nextVer : nextVersion();
 
@@ -1011,11 +1016,12 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 if (startVer.equals(ver)) {
                     long expTime = CU.toExpireTime(ttl);
 
-                    // Detach value before index update.
-                    ret = cctx.kernalContext().cacheObjects().prepareForCache(ret, cctx);
 
                     // Update indexes.
                     if (ret != null) {
+                        // Detach value before index update.
+                        ret = ret.prepareForCache(cctx.cacheObjectContext(), true);
+
                         storeValue(ret, expTime, nextVer);
 
                         if (cctx.deferredDelete() && !isInternal() && !detached() && deletedUnlocked())
@@ -1113,11 +1119,11 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             assert ttl >= 0 : ttl;
             assert expireTime >= 0 : expireTime;
 
+            assert val != null || invoke;
 
             // Detach value before index update.
-            val = cctx.kernalContext().cacheObjects().prepareForCache(val, cctx);
-
-            assert val != null || invoke;
+            if (val != null)
+                val = val.prepareForCache(cctx.cacheObjectContext(), true);
 
             res = cctx.offheap().mvccUpdate(this, val, newVer, expireTime, mvccVer, tx.local(), needHistory,
                 noCreate, needOldVal, filter, retVal, keepBinary, entryProc, invokeArgs);
@@ -1538,10 +1544,10 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             assert ttl >= 0 : ttl;
             assert expireTime >= 0 : expireTime;
 
-            // Detach value before index update.
-            val = cctx.kernalContext().cacheObjects().prepareForCache(val, cctx);
-
             assert val != null;
+
+            // Detach value before index update.
+            val = val.prepareForCache(cctx.cacheObjectContext(), true);
 
             storeValue(val, expireTime, newVer);
 
@@ -1961,11 +1967,12 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                         expireTime = CU.toExpireTime(ttl);
                 }
 
-                // Detach value before index update.
-                old = cctx.kernalContext().cacheObjects().prepareForCache(old, cctx);
+                if (old != null) {
+                    // Detach value before index update.
+                    old = old.prepareForCache(cctx.cacheObjectContext(), true);
 
-                if (old != null)
                     storeValue(old, expireTime, ver);
+                }
                 else
                     removeValue();
 
@@ -2116,7 +2123,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             // Try write-through.
             if (op == UPDATE) {
                 // Detach value before index update.
-                updated = cctx.kernalContext().cacheObjects().prepareForCache(updated, cctx);
+                if (updated != null)
+                    updated = updated.prepareForCache(cctx.cacheObjectContext(), true);
 
                 if (writeThrough)
                     // Must persist inside synchronization in non-tx mode.
@@ -2305,7 +2313,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.disableTriggeringCacheInterceptorOnConflict()
             );
 
-            key.valueBytes(cctx.cacheObjectContext());
+            key.prepareForCache(cctx.cacheObjectContext(), false);
 
             if (isNear()) {
                 CacheDataRow dataRow = val != null ? new CacheDataRowAdapter(key, val, ver, expireTimeExtras()) : null;
@@ -3336,7 +3344,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
             long expTime = expireTime < 0 ? CU.toExpireTime(ttl) : expireTime;
 
-            val = cctx.kernalContext().cacheObjects().prepareForCache(val, cctx);
+            if (val != null)
+            val = val.prepareForCache(cctx.cacheObjectContext(), true);
 
             final boolean unswapped = (flags & IS_UNSWAPPED_MASK) != 0;
 
@@ -3634,10 +3643,11 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                         expTime = expireTimeExtras();
                     }
 
-                    // Detach value before index update.
-                    val = cctx.kernalContext().cacheObjects().prepareForCache(val, cctx);
 
                     if (val != null) {
+                        // Detach value before index update.
+                        val = val.prepareForCache(cctx.cacheObjectContext(), true);
+
                         storeValue(val, expTime, newVer);
 
                         if (deletedUnlocked())
@@ -6053,7 +6063,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 storeLoadedVal = cctx.toCacheObject(cctx.store().load(null, entry.key));
 
                 if (storeLoadedVal != null) {
-                    oldVal = cctx.kernalContext().cacheObjects().prepareForCache(storeLoadedVal, cctx);
+                    oldVal = storeLoadedVal.prepareForCache(cctx.cacheObjectContext(), true);
 
                     entry.val = oldVal;
 
@@ -6406,7 +6416,8 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 }
             }
 
-            updated = cctx.kernalContext().cacheObjects().prepareForCache(updated, cctx);
+            if (updated != null)
+            updated = updated.prepareForCache(cctx.cacheObjectContext(), true);
 
             if (writeThrough)
                 // Must persist inside synchronization in non-tx mode.
