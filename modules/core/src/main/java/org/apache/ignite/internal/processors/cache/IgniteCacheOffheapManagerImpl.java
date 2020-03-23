@@ -1836,8 +1836,13 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
                     return false;
 
                 for (GridCacheMvccEntryInfo info : hist) {
+                    CacheObject val = info.value();
+
+                    if (val != null)
+                        val = val.prepareForCache(coCtx, false);
+
                     MvccDataRow row = new MvccDataRow(key,
-                        info.value(),
+                        val,
                         info.version(),
                         partId,
                         info.ttl(),
