@@ -1614,6 +1614,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             if (oldRow.expireTime() != dataRow.expireTime())
                 return false;
 
+            oldRow.key().prepareForCache(cctx.cacheObjectContext(), false);
+            oldRow.value().prepareForCache(cctx.cacheObjectContext(), false);
+
             int oldLen = oldRow.size();
 
             // Use grp.sharedGroup() flag since it is possible cacheId is not yet set here.
@@ -1622,6 +1625,9 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             if (oldLen > updateValSizeThreshold)
                 return false;
+
+            dataRow.key().prepareForCache(cctx.cacheObjectContext(), false);
+            dataRow.value().prepareForCache(cctx.cacheObjectContext(), false);
 
             int newLen = dataRow.size();
 

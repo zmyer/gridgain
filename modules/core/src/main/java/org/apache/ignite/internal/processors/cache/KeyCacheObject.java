@@ -51,5 +51,6 @@ public interface KeyCacheObject extends CacheObject {
     public KeyCacheObject copy(int part);
 
     /** {@inheritDoc} */
-    public KeyCacheObject prepareForCache(CacheObjectContext ctx, boolean compress) throws IgniteCheckedException;
+    @Override public KeyCacheObject prepareForCache(CacheObjectContext ctx, boolean compress)
+        throws IgniteCheckedException;
 }
