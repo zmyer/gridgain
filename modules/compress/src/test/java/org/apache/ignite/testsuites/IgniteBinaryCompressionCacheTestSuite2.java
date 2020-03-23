@@ -18,6 +18,7 @@ package org.apache.ignite.testsuites;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.binary.BinaryObjectCompressionPerformanceTest;
 import org.apache.ignite.testframework.junits.DynamicSuite;
 import org.junit.runner.RunWith;
 
@@ -30,6 +31,10 @@ public class IgniteBinaryCompressionCacheTestSuite2 {
      * @return Suite.
      */
     public static List<Class<?>> suite() {
-        return IgniteCacheTestSuite2.suite();
+        List<Class<?>> suite = IgniteCacheTestSuite2.suite();
+
+        suite.add(BinaryObjectCompressionPerformanceTest.class);
+
+        return suite;
     }
 }
