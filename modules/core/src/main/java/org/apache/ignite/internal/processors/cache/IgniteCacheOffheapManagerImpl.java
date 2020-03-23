@@ -1607,15 +1607,12 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
          */
         private boolean canUpdateOldRow(GridCacheContext cctx, @Nullable CacheDataRow oldRow, DataRow dataRow)
             throws IgniteCheckedException {
-            if (oldRow == null || cctx.queries().enabled() || grp.mvccEnabled())
+            if (oldRow == null || cctx.queries().enabled() || grp.mvccEnabled()
+                || ctx.kernalContext().cacheObjects().isBinaryCompressionEnabled())
                 return false;
 
             if (oldRow.expireTime() != dataRow.expireTime())
                 return false;
-
-            oldRow.key().prepareForCache(cctx.cacheObjectContext(), false);
-            // Calculation is not correct, should be amended.
-            oldRow.value().prepareForCache(cctx.cacheObjectContext(), true);
 
             int oldLen = oldRow.size();
 
@@ -1625,10 +1622,6 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
             if (oldLen > updateValSizeThreshold)
                 return false;
-
-            dataRow.key().prepareForCache(cctx.cacheObjectContext(), false);
-            // Can value be null?
-            dataRow.value().prepareForCache(cctx.cacheObjectContext(), true);
 
             int newLen = dataRow.size();
 
@@ -1824,7 +1817,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
             try {
                 CacheObjectContext coCtx = cctx.cacheObjectContext();
 
-                key.prepareForCache(coCtx, false);
+                key = key.prepareForCache(coCtx, false);
 
                 assert cctx.shared().database().checkpointLockIsHeldByThread();
 
@@ -2122,7 +2115,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                     CacheObject val0 = cctx.toCacheObject(val);
 
-                    val0.prepareForCache(cctx.cacheObjectContext(), true);
+                    val0 = val0.prepareForCache(cctx.cacheObjectContext(), true);
 
                     updateRow.value(val0);
                 }
@@ -2413,14 +2406,14 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
                 assert oldRow == null || oldRow.cacheId() == cacheId : oldRow;
 
-                DataRow dataRow = makeDataRow(key, val, ver, expireTime, cacheId);
-
                 CacheObjectContext coCtx = cctx.cacheObjectContext();
 
                 key = key.prepareForCache(coCtx, false);
 
                 if (val != null)
                     val = val.prepareForCache(coCtx, true);
+
+                DataRow dataRow = makeDataRow(key, val, ver, expireTime, cacheId);
 
                 CacheDataRow old;
 
@@ -2656,7 +2649,7 @@ public class IgniteCacheOffheapManagerImpl implements IgniteCacheOffheapManager 
 
         /** {@inheritDoc} */
         @Override public CacheDataRow find(GridCacheContext cctx, KeyCacheObject key) throws IgniteCheckedException {
-            key.prepareForCache(cctx.cacheObjectContext(), false);
+            key = key.prepareForCache(cctx.cacheObjectContext(), false);
 
             int cacheId = grp.sharedGroup() ? cctx.cacheId() : CU.UNDEFINED_CACHE_ID;
 

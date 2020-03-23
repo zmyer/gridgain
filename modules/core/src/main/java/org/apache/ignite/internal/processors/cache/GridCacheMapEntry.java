@@ -2313,8 +2313,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
                 cctx.disableTriggeringCacheInterceptorOnConflict()
             );
 
-            key.prepareForCache(cctx.cacheObjectContext(), false);
-
             if (isNear()) {
                 CacheDataRow dataRow = val != null ? new CacheDataRowAdapter(key, val, ver, expireTimeExtras()) : null;
 
@@ -6417,7 +6415,7 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
             }
 
             if (updated != null)
-            updated = updated.prepareForCache(cctx.cacheObjectContext(), true);
+                updated = updated.prepareForCache(cctx.cacheObjectContext(), true);
 
             if (writeThrough)
                 // Must persist inside synchronization in non-tx mode.
@@ -6897,8 +6895,6 @@ public abstract class GridCacheMapEntry extends GridMetadataAwareAdapter impleme
 
         try {
             checkObsolete();
-
-            key.prepareForCache(cctx.cacheObjectContext(), false);
 
             if (cctx.offheap().mvccApplyHistoryIfAbsent(this, entryHist)) {
                 updated = true;

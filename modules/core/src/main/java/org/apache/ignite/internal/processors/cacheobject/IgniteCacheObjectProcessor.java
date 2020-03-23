@@ -322,4 +322,10 @@ public interface IgniteCacheObjectProcessor extends GridProcessor {
      * @throws IgniteException If failed.
      */
     public Object marshalToBinary(Object obj, boolean failIfUnregistered) throws IgniteException;
+
+    /**
+     *
+     * @return {@code true} if binary compression is possible.
+     */
+    public boolean isBinaryCompressionEnabled();
 }

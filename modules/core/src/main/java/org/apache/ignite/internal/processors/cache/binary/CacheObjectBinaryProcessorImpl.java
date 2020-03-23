@@ -499,6 +499,11 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
         return obj0;
     }
 
+    /** {@inheritDoc} */
+    @Override public boolean isBinaryCompressionEnabled() {
+        return binaryCtx.compressor() != null;
+    }
+
     /**
      * @return Marshaller.
      */
