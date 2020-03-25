@@ -501,7 +501,7 @@ public class CacheObjectBinaryProcessorImpl extends GridProcessorAdapter impleme
 
     /** {@inheritDoc} */
     @Override public boolean isBinaryCompressionEnabled() {
-        return binaryCtx.compressor() != null;
+        return binaryCtx != null && binaryCtx.compressor() != null;
     }
 
     /**
