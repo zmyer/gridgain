@@ -94,6 +94,14 @@ public class IgniteUtilsWorkDirectoryTest {
     }
 
     /**
+     * My_test_3
+     */
+    @Test
+    public void myTest3() {
+        throw new RuntimeException("myTest3 passed");
+    }
+
+    /**
      * The work directory specified by the user has the highest priority
      */
     @Test
