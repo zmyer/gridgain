@@ -326,8 +326,7 @@ public class TcpDiscoveryVmIpFinderDnsResolveTest extends GridCommonAbstractTest
         }
 
         /** {@inheritDoc} */
-        @Override
-        public InetAddress[] lookupAllHostAddr(String paramStr) throws UnknownHostException {
+        @Override public InetAddress[] lookupAllHostAddr(String paramStr) throws UnknownHostException {
             if (fqdn.equals(paramStr)) {
                 String ip = needReturnIp1 ? ip1 : ip2;
 
@@ -355,8 +354,7 @@ public class TcpDiscoveryVmIpFinderDnsResolveTest extends GridCommonAbstractTest
         }
 
         /** {@inheritDoc} */
-        @Override
-        public String getHostByAddr(byte[] paramArrOfByte) throws UnknownHostException {
+        @Override public String getHostByAddr(byte[] paramArrOfByte) throws UnknownHostException {
             throw new UnknownHostException();
         }
 
