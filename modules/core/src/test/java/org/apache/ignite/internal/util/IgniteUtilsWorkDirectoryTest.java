@@ -81,6 +81,38 @@ public class IgniteUtilsWorkDirectoryTest {
      * The work directory specified by the user has the highest priority
      */
     @Test
+    public void sunNewTests_1() {
+        System.out.println("q");
+    }
+
+    /**
+     * The work directory specified by the user has the highest priority
+     */
+    @Test
+    public void sunNewTests_2() {
+        throw new RuntimeException();
+    }
+
+    /**
+     * The work directory specified by the user has the highest priority
+     */
+    @Test
+    public void sunNewTests_3() {
+        System.out.println("q");
+    }
+
+    /**
+     * The work directory specified by the user has the highest priority
+     */
+    @Test
+    public void sunNewTests_4() {
+        throw new RuntimeException();
+    }
+
+    /**
+     * The work directory specified by the user has the highest priority
+     */
+    @Test
     public void testWorkDirectory1() {
         executeGenericTest(true, false, false,
             USER_WORK_DIR);
