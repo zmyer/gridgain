@@ -77,6 +77,11 @@ public class IgniteUtilsWorkDirectoryTest {
             setProperty("user.dir", dfltUserDir);
     }
 
+    @Test
+    public void myTest1() {
+        throw new RuntimeException();
+    }
+
     /**
      * The work directory specified by the user has the highest priority
      */
