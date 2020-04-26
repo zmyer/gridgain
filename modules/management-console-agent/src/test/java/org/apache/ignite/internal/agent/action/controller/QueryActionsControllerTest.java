@@ -890,7 +890,7 @@ public class QueryActionsControllerTest extends AbstractActionControllerTest {
      */
     private String getCreateQuery(String name, String additionaParams) {
         return "CREATE TABLE " + name + " (id int, value int, PRIMARY KEY (id)) " +
-            (additionaParams != null ? "WITH \"" + additionaParams + "\"": "") + ";";
+            (additionaParams != null ? "WITH \"" + additionaParams + "\"" : "") + ";";
     }
 
     /**

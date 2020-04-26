@@ -137,7 +137,7 @@ public class DistributedActionProcessorWithAuthenticationTest extends AbstractAc
             .setSessionId(sesId);
 
         executeAction(req, jobRes -> {
-            List<TaskResponse> taskRes =taskResults(req.getId());
+            List<TaskResponse> taskRes = taskResults(req.getId());
 
             Optional<TaskResponse> runningTask = taskRes.stream().filter(r -> r.getStatus() == RUNNING).findFirst();
             Optional<TaskResponse> completedTask = taskRes.stream().filter(r -> r.getStatus() == COMPLETED).findFirst();
@@ -179,7 +179,7 @@ public class DistributedActionProcessorWithAuthenticationTest extends AbstractAc
             .setSessionId(sesId);
 
         executeActionAndStopNode(req, 1000, 1, res -> {
-            List<TaskResponse> taskRes =taskResults(req.getId());
+            List<TaskResponse> taskRes = taskResults(req.getId());
 
             Optional<TaskResponse> runningTask = taskRes.stream().filter(r -> r.getStatus() == RUNNING).findFirst();
             Optional<TaskResponse> failedTask = taskRes.stream().filter(r -> r.getStatus() == FAILED).findFirst();

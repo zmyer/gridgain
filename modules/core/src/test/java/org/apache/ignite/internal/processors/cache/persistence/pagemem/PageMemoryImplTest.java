@@ -643,7 +643,7 @@ public class PageMemoryImplTest extends GridCommonAbstractTest {
                 NO_OP_METRICS),
             throttlingPlc,
             noThrottle
-        ): new PageMemoryImpl(
+        ) : new PageMemoryImpl(
             provider,
             sizes,
             sharedCtx,

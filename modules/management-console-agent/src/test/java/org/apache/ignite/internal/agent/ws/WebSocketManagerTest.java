@@ -55,7 +55,7 @@ public class WebSocketManagerTest extends AgentCommonAbstractTest {
 
         List<CompletableFuture> list = new ArrayList<>();
 
-        for(int i = 0; i < 500; i++) {
+        for (int i = 0; i < 500; i++) {
             list.add(runAsync(() -> snd.send("/topic/first", 1), srv));
             list.add(runAsync(() -> snd.send("/topic/second", 2), srv));
         }
