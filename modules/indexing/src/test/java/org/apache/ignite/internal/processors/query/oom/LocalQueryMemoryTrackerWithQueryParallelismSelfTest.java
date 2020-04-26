@@ -292,7 +292,7 @@ public class LocalQueryMemoryTrackerWithQueryParallelismSelfTest extends BasicQu
         checkQueryExpectOOM("select * from K LIMIT 8000", false);
 
         assertEquals(4, localResults.size());
-        assertFalse(localResults.stream().anyMatch(r -> + 1000 > maxMem));
+        assertFalse(localResults.stream().anyMatch(r -> 1000 > maxMem));
         assertTrue(8000 > localResults.stream().mapToLong(H2ManagedLocalResult::getRowCount).sum());
     }
 
