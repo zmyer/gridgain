@@ -2826,8 +2826,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
             for (UpdateResult res : ress) {
                 res.throwIfError();
 
-                QueryCursorImpl<List<?>> resCur = (QueryCursorImpl<List<?>>)new QueryCursorImpl(singletonList
-                    (singletonList(res.counter())), cancel, false, false);
+                QueryCursorImpl<List<?>> resCur = (QueryCursorImpl<List<?>>)new QueryCursorImpl(singletonList(
+                    singletonList(res.counter())), cancel, false, false);
 
                 resCur.fieldsMeta(UPDATE_RESULT_META);
 
@@ -2849,8 +2849,8 @@ public class IgniteH2Indexing implements GridQueryIndexing {
 
             res.throwIfError();
 
-            QueryCursorImpl<List<?>> resCur = (QueryCursorImpl<List<?>>)new QueryCursorImpl(singletonList
-                (singletonList(res.counter())), cancel, false, false);
+            QueryCursorImpl<List<?>> resCur = (QueryCursorImpl<List<?>>)new QueryCursorImpl(singletonList(
+                singletonList(res.counter())), cancel, false, false);
 
             resCur.fieldsMeta(UPDATE_RESULT_META);
 
