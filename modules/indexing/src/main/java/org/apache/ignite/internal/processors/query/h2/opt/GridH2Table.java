@@ -1428,7 +1428,7 @@ public class GridH2Table extends TableBase {
                             ", colName=" + name + ']');
                 }
 
-                size --;
+                size--;
             }
 
             assert size > QueryUtils.DEFAULT_COLUMNS_COUNT;
