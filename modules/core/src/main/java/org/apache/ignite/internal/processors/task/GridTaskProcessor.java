@@ -1070,7 +1070,7 @@ public class GridTaskProcessor extends GridProcessorAdapter implements IgniteCha
                             false);
                     }
                     catch (IgniteCheckedException e) {
-                        node = e instanceof  ClusterTopologyCheckedException ? null : ctx.discovery().node(nodeId);
+                        node = e instanceof ClusterTopologyCheckedException ? null : ctx.discovery().node(nodeId);
 
                         if (node != null) {
                             try {

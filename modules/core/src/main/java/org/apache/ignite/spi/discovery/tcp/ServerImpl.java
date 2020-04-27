@@ -5320,7 +5320,7 @@ class ServerImpl extends TcpDiscoveryImpl {
                             return;
                         }
                     }
-                    else  {
+                    else {
                         if (log.isDebugEnabled())
                             log.debug("Discarding node added message (this message has already been processed) " +
                                 "[spiState=" + spiState +

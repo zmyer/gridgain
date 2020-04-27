@@ -74,7 +74,7 @@ public class WebSocketManager extends GridProcessorAdapter implements ControlCen
     private final ObjectMapper mapper = binaryMapper();
 
     /** Ws max buffer size. */
-    private static final int WS_MAX_BUFFER_SIZE =  10 * 1024 * 1024;
+    private static final int WS_MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 
     /** Agent version header. */
     private static final String AGENT_VERSION_HDR = "Agent-Version";

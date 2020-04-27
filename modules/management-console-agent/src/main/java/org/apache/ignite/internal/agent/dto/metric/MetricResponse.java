@@ -293,7 +293,7 @@ public class MetricResponse implements Message {
             List<MetricRegistrySchemaItem> regItems = regSchema.items();
 
             for (MetricRegistrySchemaItem regItem : regItems) {
-                String name =  item.prefix() + '.' + regItem.name();
+                String name = item.prefix() + '.' + regItem.name();
 
                 MetricType type = MetricType.findByType(regItem.metricType().type());
 

@@ -56,7 +56,7 @@ public class ManagementConsoleMessagesProcessorTest extends AgentCommonAbstractT
             if (evts != null && evts.size() == 1) {
                 JsonNode evt = F.first(evts);
 
-                return  EVT_NODE_JOINED == evt.get("typeId").asInt();
+                return EVT_NODE_JOINED == evt.get("typeId").asInt();
             }
 
             return false;
@@ -82,7 +82,7 @@ public class ManagementConsoleMessagesProcessorTest extends AgentCommonAbstractT
             if (evts != null && evts.size() == 1) {
                 JsonNode evt = F.first(evts);
 
-                return  EVT_CLUSTER_ACTIVATED == evt.get("typeId").asInt();
+                return EVT_CLUSTER_ACTIVATED == evt.get("typeId").asInt();
             }
 
             return false;

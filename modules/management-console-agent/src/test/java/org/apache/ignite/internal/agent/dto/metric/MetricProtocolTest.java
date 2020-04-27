@@ -41,7 +41,7 @@ import static org.apache.ignite.internal.managers.communication.GridIoPolicy.SYS
     @WithSystemProperty(key = IGNITE_CLUSTER_ID_AND_TAG_FEATURE, value = "true"),
     @WithSystemProperty(key = IGNITE_DISTRIBUTED_META_STORAGE_FEATURE, value = "true")
 })
-public class  MetricProtocolTest extends GridCommonAbstractTest {
+public class MetricProtocolTest extends GridCommonAbstractTest {
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
         IgniteConfiguration cfg = super.getConfiguration(igniteInstanceName);

@@ -24,7 +24,7 @@ import org.apache.ignite.internal.util.typedef.internal.S;
  */
 public class NextPageQueryArgument {
     /** Query ID. */
-    private  String qryId;
+    private String qryId;
 
     /** Cursor ID. */
     private String cursorId;
