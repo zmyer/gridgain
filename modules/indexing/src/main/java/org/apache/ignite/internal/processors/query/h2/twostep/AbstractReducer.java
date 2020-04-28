@@ -267,7 +267,6 @@ public abstract class AbstractReducer implements Reducer {
         page.setLast(true);
     }
 
-
     /**
      * @param nodeId Node ID.
      * @param res Response.

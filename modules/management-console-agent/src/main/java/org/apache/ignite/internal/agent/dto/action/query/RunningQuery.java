@@ -90,7 +90,6 @@ public class RunningQuery {
         return qry;
     }
 
-
     /**
      * @param qry Query.
      * @return {@code This} for chaining method calls.
@@ -168,7 +167,6 @@ public class RunningQuery {
 
         return this;
     }
-
 
     /**
      * @return {@code true} if query can be cancelled.

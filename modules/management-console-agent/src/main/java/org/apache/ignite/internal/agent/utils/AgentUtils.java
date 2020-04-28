@@ -164,8 +164,6 @@ public final class AgentUtils {
         return authenticationProc.authenticate(login, pwd);
     }
 
-
-
     /**
      * @param security Security.
      * @param perm Permission.

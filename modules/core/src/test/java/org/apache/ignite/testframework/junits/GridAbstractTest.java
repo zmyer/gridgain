@@ -1349,7 +1349,6 @@ public abstract class GridAbstractTest extends JUnitAssertAware {
         stopGrid0(igniteInstanceName, cancel, awaitTop, true);
     }
 
-
     /**
      * @param igniteInstanceName Ignite instance name.
      * @param cancel Cancel flag.

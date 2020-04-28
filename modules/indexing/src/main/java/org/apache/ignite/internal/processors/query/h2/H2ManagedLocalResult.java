@@ -675,7 +675,6 @@ public class H2ManagedLocalResult implements LocalResult {
         return memTracker;
     }
 
-
     /** Close event handler. */
     protected void onClose() {
         // Allow results to be collected by GC before mark memory released.
