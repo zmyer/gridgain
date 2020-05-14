@@ -39,6 +39,7 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -197,6 +198,9 @@ public abstract class GridAbstractTest extends JUnitAssertAware {
 
     /** */
     protected static final String DEFAULT_CACHE_NAME = "default";
+
+    /** {@link Executors.DefaultThreadFactory} count before test. */
+    protected static transient int defaultThreadFactoryCountBeforeTest;
 
     /** Sustains {@link #beforeTestsStarted()} and {@link #afterTestsStopped()} methods execution.*/
     @ClassRule public static final TestRule firstLastTestRule = RuleChain
@@ -667,6 +671,7 @@ public abstract class GridAbstractTest extends JUnitAssertAware {
 
     /** */
     private void beforeFirstTest() throws Exception {
+        defaultThreadFactoryCountBeforeTest = getDefaultPoolCounter();
         sharedStaticIpFinder = new TcpDiscoveryVmIpFinder(true);
 
         clsLdr = Thread.currentThread().getContextClassLoader();
@@ -2786,4 +2791,23 @@ public abstract class GridAbstractTest extends JUnitAssertAware {
 
         return MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, mbeanName, DynamicMBean.class, false);
     }
+
+    /**
+     * Gets pools count with {@link Executors.DefaultThreadFactory}.
+     * @return count
+     */
+    protected static int getDefaultPoolCounter() {
+        try {
+            Class<?> defaultThreadFacktory = Class.forName("java.util.concurrent.Executors$DefaultThreadFactory");
+            Field poolNumber = defaultThreadFacktory.getDeclaredField("poolNumber");
+            poolNumber.setAccessible(true);
+            AtomicInteger counter = (AtomicInteger)poolNumber.get(null);
+            return counter.get();
+        }
+        catch (ReflectiveOperationException e) {
+            log.error(e.getMessage());
+        }
+        return -1;
+    }
+
 }
