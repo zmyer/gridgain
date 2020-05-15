@@ -102,9 +102,13 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
     private static final String BULKLOAD_ONE_LINE_CSV_FILE_UNMATCHED_QUOTE4 =
         Objects.requireNonNull(resolveIgnitePath(CSV_FILE_SUBDIR + "bulkload1_unmatched4.csv")).getAbsolutePath();
 
-    /** /** A CSV file with one record and unmatched quote in the quoted field content. */
+    /** A CSV file with one record and unmatched quote in the quoted field content. */
     private static final String BULKLOAD_ONE_LINE_CSV_FILE_UNMATCHED_QUOTE5 =
         Objects.requireNonNull(resolveIgnitePath(CSV_FILE_SUBDIR + "bulkload1_unmatched5.csv")).getAbsolutePath();
+
+    /** A CSV file with one record and unmatched quote in the quoted field content. */
+    private static final String BULKLOAD_ONE_LINE_CSV_FILE_EMPTY_NUMERIC =
+        Objects.requireNonNull(resolveIgnitePath(CSV_FILE_SUBDIR + "bulkload_empty_numeric.csv")).getAbsolutePath();
 
     /** Basic COPY statement used in majority of the tests. */
     public static final String BASIC_SQL_COPY_STMT =
@@ -265,6 +269,23 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
         assertEquals(1, updatesCnt);
 
         checkCacheContents(TBL_NAME, true, 1);
+    }
+
+    /**
+     * Imports two-entry CSV file into a table and checks the entry created using SELECT statement.
+     *
+     * @throws SQLException If failed.
+     */
+    @Test
+    public void testTwoLineFileWithEmptyNumericColumn() throws SQLException {
+        int updatesCnt = stmt.executeUpdate(
+            "copy from '" + BULKLOAD_ONE_LINE_CSV_FILE_EMPTY_NUMERIC + "' into " + TBL_NAME +
+                " (_key, age, firstName, lastName)" +
+                " format csv");
+
+        assertEquals(2, updatesCnt);
+
+        checkCacheContents(TBL_NAME, true, 2);
     }
 
     /**
@@ -954,16 +975,20 @@ public abstract class JdbcThinBulkLoadAbstractSelfTest extends JdbcThinAbstractD
             SyntheticPerson sp = new SyntheticPerson(rs.getInt("age"),
                 rs.getString("firstName"), rs.getString("lastName"));
 
-            if (id == 123)
+            if (id == 101)
+                sp.validateValues(0, "FirstName101 MiddleName101", "LastName101", checkLastName);
+            else if (id == 102)
+                sp.validateValues(0, "FirstName102 MiddleName102", "LastName102", checkLastName);
+            else if (id == 123)
                 sp.validateValues(12, "FirstName123 MiddleName123", "LastName123", checkLastName);
             else if (id == 234)
                 sp.validateValues(23, "FirstName|234", "", checkLastName);
             else if (id == 345)
-                sp.validateValues(34, "FirstName,345", "", checkLastName);
+                sp.validateValues(34, "FirstName,345", null, checkLastName);
             else if (id == 456)
                 sp.validateValues(45, "FirstName456", "LastName456", checkLastName);
             else if (id == 567)
-                sp.validateValues(56, "", "", checkLastName);
+                sp.validateValues(56, null, null, checkLastName);
             else if (id == 678)
                 sp.validateValues(67, "", null, checkLastName);
             else if (id == 789)

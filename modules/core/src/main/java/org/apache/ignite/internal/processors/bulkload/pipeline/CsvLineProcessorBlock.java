@@ -82,7 +82,8 @@ public class CsvLineProcessorBlock extends PipelineBlock<String, String[]> {
                 if (copy > 0)
                     currentField.append(input, copyStart, copyStart + copy);
 
-                fields.add(currentField.toString());
+                addField(fields, currentField, prev == quoteChars);
+
                 break;
             }
 
@@ -113,7 +114,7 @@ public class CsvLineProcessorBlock extends PipelineBlock<String, String[]> {
                         copy = 0;
                     }
 
-                    fields.add(currentField.toString());
+                    addField(fields, currentField, prev == quoteChars);
 
                     currentField = new StringBuilder();
                     copyStart = current;
@@ -145,6 +146,25 @@ public class CsvLineProcessorBlock extends PipelineBlock<String, String[]> {
         }
 
         nextBlock.accept(fields.toArray(EMPTY_STR_ARRAY), isLastPortion);
+    }
+
+    /**
+     *
+     * @param fields row fields.
+     * @param fieldVal field value.
+     */
+    private void addField(List<String> fields, StringBuilder fieldVal, boolean quoted) {
+        String val;
+
+        if (!quoted)
+            val = fieldVal.toString().trim();
+        else
+            val = fieldVal.toString();
+
+        if (val.isEmpty() && !quoted)
+            val = null;
+
+        fields.add(val);
     }
 
     /**
