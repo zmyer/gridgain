@@ -150,7 +150,7 @@ public class WalRebalanceRestartTest extends GridCommonAbstractTest {
             resetBaselineTopology();
 
             stopFirstFoundSupplier(ignite);
-        }, false);
+        }, true);
     }
 
     /**

@@ -3369,10 +3369,12 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     nodeCntrs.initialUpdateCounterAt(i) :
                     nodeCntrs.updateCounterAt(i);
 
-                T2<UUID, Long> minCntr = minCntrs.get(p);
+                if (cntr > 0) {
+                    T2<UUID, Long> minCntr = minCntrs.get(p);
 
-                if (minCntr == null || minCntr.get2() > cntr)
-                    minCntrs.put(p, new T2(remoteNodeId, cntr));
+                    if (minCntr == null || minCntr.get2() > cntr)
+                        minCntrs.put(p, new T2(remoteNodeId, cntr));
+                }
 
                 if (state != GridDhtPartitionState.OWNING)
                     continue;
@@ -3395,10 +3397,12 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
             final long cntr = state == GridDhtPartitionState.MOVING ? part.initialUpdateCounter() : part.updateCounter();
 
-            T2<UUID, Long> minCntr = minCntrs.get(part.id());
+            if (cntr > 0) {
+                T2<UUID, Long> minCntr = minCntrs.get(part.id());
 
-            if (minCntr == null || minCntr.get2() > cntr)
-                minCntrs.put(part.id(), new T2(cctx.localNodeId(), cntr));
+                if (minCntr == null || minCntr.get2() > cntr)
+                    minCntrs.put(part.id(), new T2(cctx.localNodeId(), cntr));
+            }
 
             if (state != GridDhtPartitionState.OWNING)
                 continue;
