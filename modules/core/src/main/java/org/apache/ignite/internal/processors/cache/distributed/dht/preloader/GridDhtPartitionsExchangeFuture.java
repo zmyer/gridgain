@@ -3501,7 +3501,8 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if (localReserved != null) {
                 Long localHistCntr = localReserved.get(p);
 
-                if (localHistCntr != null && maxCntrObj.nodes.contains(cctx.localNodeId())) {
+                if (localHistCntr != null && maxCntrObj.nodes.contains(cctx.localNodeId())
+                    && deepestReserved.get2() > localHistCntr) {
                     Long ceilingMinReserved = mins.ceiling(localHistCntr);
 
                     if (ceilingMinReserved != null) {
@@ -3513,15 +3514,15 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                             continue;
                     }
 
-                    if (deepestReserved.get2() > localHistCntr)
-                        deepestReserved.set(cctx.localNodeId(), localHistCntr);
+                    deepestReserved.set(cctx.localNodeId(), localHistCntr);
                 }
             }
 
             for (Map.Entry<UUID, GridDhtPartitionsSingleMessage> e0 : msgs.entrySet()) {
                 Long histCntr = e0.getValue().partitionHistoryCounters(top.groupId()).get(p);
 
-                if (histCntr != null && maxCntrObj.nodes.contains(e0.getKey())) {
+                if (histCntr != null && maxCntrObj.nodes.contains(e0.getKey())
+                    && deepestReserved.get2() > histCntr) {
                     Long ceilingMinReserved = mins.ceiling(histCntr);
 
                     if (ceilingMinReserved != null) {
@@ -3533,8 +3534,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                             continue nextPartition;
                     }
 
-                    if (deepestReserved.get2() > histCntr)
-                        deepestReserved.set(e0.getKey(), histCntr);
+                    deepestReserved.set(e0.getKey(), histCntr);
                 }
             }
 
