@@ -29,7 +29,9 @@ import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.apache.ignite.configuration.IgniteConfiguration;
 import org.apache.ignite.internal.IgniteEx;
 import org.apache.ignite.internal.IgniteInternalFuture;
+import org.apache.ignite.internal.IgniteInterruptedCheckedException;
 import org.apache.ignite.internal.TestRecordingCommunicationSpi;
+import org.apache.ignite.internal.processors.affinity.AffinityTopologyVersion;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.GridDhtPartitionDemandMessage;
 import org.apache.ignite.internal.processors.cache.distributed.dht.preloader.IgniteDhtDemandedPartitionsMap;
 import org.apache.ignite.internal.util.typedef.F;
@@ -37,6 +39,7 @@ import org.apache.ignite.internal.util.typedef.G;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.internal.util.typedef.internal.U;
 import org.apache.ignite.lang.IgniteFuture;
+import org.apache.ignite.testframework.GridTestUtils;
 import org.apache.ignite.testframework.junits.WithSystemProperty;
 import org.apache.ignite.testframework.junits.common.GridCommonAbstractTest;
 import org.junit.Test;
@@ -46,6 +49,9 @@ import org.junit.Test;
  */
 @WithSystemProperty(key = IgniteSystemProperties.IGNITE_PDS_WAL_REBALANCE_THRESHOLD, value = "0")
 public class WalRebalanceRestartTest extends GridCommonAbstractTest {
+
+    /** Version of progressing rebalance. */
+    private volatile AffinityTopologyVersion rebTopVer = null;
 
     /** {@inheritDoc} */
     @Override protected IgniteConfiguration getConfiguration(String igniteInstanceName) throws Exception {
@@ -149,8 +155,24 @@ public class WalRebalanceRestartTest extends GridCommonAbstractTest {
 
             resetBaselineTopology();
 
+            waitForRebalanceOnLastDiscoTopology(ignite);
+
             stopFirstFoundSupplier(ignite);
         }, true);
+    }
+
+    /**
+     * Waiting for rebalancing on last topology which got through Discovery.
+     *
+     * @param ignite Ignite.
+     * @throws IgniteInterruptedCheckedException if failed.
+     */
+    private void waitForRebalanceOnLastDiscoTopology(IgniteEx ignite) throws IgniteInterruptedCheckedException {
+        AffinityTopologyVersion readyAffinity = ignite.context().cache().context().exchange().readyAffinityVersion();
+
+        assertTrue("Can not wait for rebalance topology [cur=" + rebTopVer + ", expect: " + readyAffinity + ']',
+            GridTestUtils.waitForCondition(() -> rebTopVer.equals(readyAffinity),
+                10_000));
     }
 
     /**
@@ -162,6 +184,8 @@ public class WalRebalanceRestartTest extends GridCommonAbstractTest {
     public void testStopSupplierAndSatrtNewNode() throws Exception {
         restartRebalance((ignite) -> {
             stopFirstFoundSupplier(ignite);
+
+            waitForRebalanceOnLastDiscoTopology(ignite);
 
             startGrid("new_srv");
 
@@ -237,8 +261,13 @@ public class WalRebalanceRestartTest extends GridCommonAbstractTest {
             if (msg instanceof GridDhtPartitionDemandMessage) {
                 GridDhtPartitionDemandMessage demandMsg = (GridDhtPartitionDemandMessage)msg;
 
-                if (CU.cacheId(DEFAULT_CACHE_NAME) == demandMsg.groupId() && !F.isEmpty(demandMsg.partitions().fullSet()))
-                    hasFullRebalance.compareAndSet(false, true);
+                if (CU.cacheId(DEFAULT_CACHE_NAME) == demandMsg.groupId()) {
+                    if (rebTopVer == null || rebTopVer.before(demandMsg.topologyVersion()))
+                        rebTopVer = demandMsg.topologyVersion();
+
+                    if (!F.isEmpty(demandMsg.partitions().fullSet()))
+                        hasFullRebalance.compareAndSet(false, true);
+                }
 
             }
 

@@ -26,8 +26,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -3347,7 +3349,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
      */
     private List<SupplyPartitionInfo> assignPartitionStates(GridDhtPartitionTopology top, boolean resetOwners) {
         Map<Integer, CounterWithNodes> maxCntrs = new HashMap<>();
-        Map<Integer, T2<UUID, Long>> minCntrs = new HashMap<>();
+        Map<Integer, TreeSet<Long>> minCntrs = new HashMap<>();
 
         for (Map.Entry<UUID, GridDhtPartitionsSingleMessage> e : msgs.entrySet()) {
             CachePartitionPartialCountersMap nodeCntrs = e.getValue().partitionUpdateCounters(top.groupId(),
@@ -3369,12 +3371,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                     nodeCntrs.initialUpdateCounterAt(i) :
                     nodeCntrs.updateCounterAt(i);
 
-                if (cntr > 0) {
-                    T2<UUID, Long> minCntr = minCntrs.get(p);
-
-                    if (minCntr == null || minCntr.get2() > cntr)
-                        minCntrs.put(p, new T2(remoteNodeId, cntr));
-                }
+                minCntrs.computeIfAbsent(p, key -> new TreeSet<>()).add(cntr);
 
                 if (state != GridDhtPartitionState.OWNING)
                     continue;
@@ -3395,14 +3392,11 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
             if (state != GridDhtPartitionState.OWNING && state != GridDhtPartitionState.MOVING)
                 continue;
 
-            final long cntr = state == GridDhtPartitionState.MOVING ? part.initialUpdateCounter() : part.updateCounter();
+            final long cntr = state == GridDhtPartitionState.MOVING ?
+                part.initialUpdateCounter() :
+                part.updateCounter();
 
-            if (cntr > 0) {
-                T2<UUID, Long> minCntr = minCntrs.get(part.id());
-
-                if (minCntr == null || minCntr.get2() > cntr)
-                    minCntrs.put(part.id(), new T2(cctx.localNodeId(), cntr));
-            }
+            minCntrs.computeIfAbsent(part.id(), key -> new TreeSet<>()).add(cntr);
 
             if (state != GridDhtPartitionState.OWNING)
                 continue;
@@ -3479,7 +3473,7 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
     private List<SupplyPartitionInfo> assignHistoricalSuppliers(
         GridDhtPartitionTopology top,
         Map<Integer, CounterWithNodes> maxCntrs,
-        Map<Integer, T2<UUID, Long>> minCntrs,
+        Map<Integer, TreeSet<Long>> minCntrs,
         Set<Integer> haveHistory
     ) {
         Map<Integer, Map<Integer, Long>> partHistReserved0 = partHistReserved;
@@ -3488,16 +3482,18 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
 
         List<SupplyPartitionInfo> list = new ArrayList<>();
 
-        for (Map.Entry<Integer, T2<UUID, Long>> e : minCntrs.entrySet()) {
+        nextPartition:
+        for (Map.Entry<Integer, TreeSet<Long>> e : minCntrs.entrySet()) {
             int p = e.getKey();
-            long minCntr = e.getValue().get2();
 
             CounterWithNodes maxCntrObj = maxCntrs.get(p);
 
             long maxCntr = maxCntrObj != null ? maxCntrObj.cnt : 0;
 
-            // If minimal counter is zero, do clean preloading.
-            if (minCntr == 0 || minCntr == maxCntr)
+            NavigableSet<Long> mins = e.getValue().headSet(maxCntr, false);
+
+            // If minimal counter equals maximum then historical supplier does not necessary.
+            if (mins.isEmpty())
                 continue;
 
             T2<UUID, Long> deepestReserved = new T2<>(null, Long.MAX_VALUE);
@@ -3506,13 +3502,15 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 Long localHistCntr = localReserved.get(p);
 
                 if (localHistCntr != null && maxCntrObj.nodes.contains(cctx.localNodeId())) {
-                    if (localHistCntr <= minCntr) {
+                    Long ceilingMinReserved = mins.ceiling(localHistCntr);
 
-                        partHistSuppliers.put(cctx.localNodeId(), top.groupId(), p, localHistCntr);
+                    if (ceilingMinReserved != null) {
+                        partHistSuppliers.put(cctx.localNodeId(), top.groupId(), p, ceilingMinReserved);
 
                         haveHistory.add(p);
 
-                        continue;
+                        if (mins.lower(ceilingMinReserved) == null)
+                            continue;
                     }
 
                     if (deepestReserved.get2() > localHistCntr)
@@ -3524,12 +3522,15 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 Long histCntr = e0.getValue().partitionHistoryCounters(top.groupId()).get(p);
 
                 if (histCntr != null && maxCntrObj.nodes.contains(e0.getKey())) {
-                    if (histCntr <= minCntr) {
-                        partHistSuppliers.put(e0.getKey(), top.groupId(), p, histCntr);
+                    Long ceilingMinReserved = mins.ceiling(histCntr);
+
+                    if (ceilingMinReserved != null) {
+                        partHistSuppliers.put(e0.getKey(), top.groupId(), p, ceilingMinReserved);
 
                         haveHistory.add(p);
 
-                        break;
+                        if (mins.lower(ceilingMinReserved) == null)
+                            continue nextPartition;
                     }
 
                     if (deepestReserved.get2() > histCntr)
@@ -3537,15 +3538,13 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                 }
             }
 
-            if (!haveHistory.contains(p)) {
-                list.add(new SupplyPartitionInfo(
-                    p,
-                    minCntr,
-                    e.getValue().get1(),
-                    deepestReserved.get2(),
-                    deepestReserved.get1()
-                ));
-            }
+            //No one reservation matched for this partition.
+            list.add(new SupplyPartitionInfo(
+                p,
+                mins.last(),
+                deepestReserved.get2(),
+                deepestReserved.get1()
+            ));
         }
 
         return list;
@@ -4215,7 +4214,6 @@ public class GridDhtPartitionsExchangeFuture extends GridDhtTopologyFutureAdapte
                         entry.getValue().stream().filter(SupplyPartitionInfo::isHistoryReserved).map(info ->
                             "[part=" + info.part() +
                                 ", minCntr=" + info.minCntr() +
-                                ", minNodeId=" + info.minNodeId() +
                                 ", maxReserved=" + info.maxReserved() +
                                 ", maxReservedNodeId=" + info.maxReservedNodeId() + ']'
                         ).collect(Collectors.joining(", ")) + ']'
